@@ -43,6 +43,7 @@ replay_pid*
 .project
 .classpath
 .settings/
+.jqwik-database
 
 # OS Specific
 .DS_Store

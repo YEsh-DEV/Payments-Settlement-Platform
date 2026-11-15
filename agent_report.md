@@ -29,15 +29,40 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **Setup** | Repo init, system design, ADRs, notices | **COMPLETE** | Remote connected, licenses verified | `7334455` |
 | **P0** | Foundations & Monorepo Skeleton | **COMPLETE** | Build green, Spotless verified, Compose valid | `13ff033` |
-| **P1** | Identity Service | **COMPLETE** | RS256 JWKS, Refresh Rotation, Denylist, User Admin | `feat(p1)` |
-| **P2** | Ledger Service MVP | **IN PROGRESS** | Double-entry posting engine, Invariants I1-I8 | TBD |
-| **P3** | Hot-Account Study & Crash Harness | QUEUED | Pending P2 | TBD |
+| **P1** | Identity Service | **COMPLETE** | RS256 JWKS, Refresh Rotation, Denylist, User Admin | `36388ac` |
+| **P2** | Ledger Service MVP | **COMPLETE** | Double-entry posting engine, Invariants I1-I8, Idempotency | `feat(p2)` |
+| **P3** | Hot-Account Study & Crash Harness | **IN PROGRESS** | Strategies S1/S2/S4, benchmarks, SIGKILL crash harness | TBD |
 | **P4** | Holds & Payouts | QUEUED | Pending P3 | TBD |
 | **P5** | Settlement Core & Simulator | QUEUED | Pending P4 | TBD |
 | **P6** | Reconciliation Engine | QUEUED | Pending P5 | TBD |
 | **P7** | Cases & Maker-Checker | QUEUED | Pending P6 | TBD |
 | **P8** | Ops Console (React 19) | QUEUED | Pending P7 | TBD |
 | **P9** | Hardening & Observability | QUEUED | Pending P8 | TBD |
+
+---
+
+## Phase 2: Definition of Done (DoD) Checklist
+
+- [x] **Flyway Migration & Schema:** `V1__init_ledger.sql` creating isolated tables (`accounts`, `account_stripes`, `account_snapshots`, `sellers`, `journals`, `ledger_entries`, `payments`, `refunds`, `holds`, `payouts`, `idempotency_keys`, `outbox_events`, `processed_events`) with PostgreSQL immutability trigger (`trg_ledger_entry_immutability`).
+- [x] **Invariants I1 - I8 Enforcement:**
+  - I1: Double-entry balanced $\sum \text{DR} = \sum \text{CR}$ verified via property-based testing (1,500 jqwik checks).
+  - I2: Immutability guaranteed via PostgreSQL trigger preventing `UPDATE` and `DELETE` on `ledger_entries`.
+  - I3: Currency homogeneity enforced via `Money` (`paise` integer, strictly INR).
+  - I4: Positive amounts strictly enforced on all journal legs (`amount > 0`).
+  - I5: Non-negative balance constraint enforced on merchant liability accounts.
+  - I6: Idempotent execution returning identical responses on key replay.
+  - I7: Global lock ordering sorting non-hot UUIDs asc first, then hot UUIDs asc, eliminating deadlocks under concurrent postings.
+  - I8: Monotonic entry sequence IDs guaranteed via `BIGSERIAL`.
+- [x] **Core Posting Engine:** Strategy S0 (`PESSIMISTIC`) with 8-step atomic transaction lifecycle and outbox event recording.
+- [x] **Idempotency Framework (F-L-10):** Deterministic SHA-256 payload hashing, 422 conflict on payload mismatch, 409 conflict on in-flight requests, and cached responses on replay.
+- [x] **Core Payment & Refund Workflows:**
+  - F-L-01 Seller onboarding with merchant account provisioning (`MERCHANT_${sellerId}`).
+  - F-L-02 Payment capture with basis points fee deduction (`gross.calculateFeeBps()`) and atomic 3-leg posting.
+  - F-L-03 Refund processing with proportional fee and net reversals and cumulative refund threshold guards.
+  - F-L-08 Account balance query and keyset pagination statement (`/accounts/{code}/statement`).
+- [x] **Outbox Relay:** Scheduled batch worker polling unpublished events with Kafka integration and fail-safe error handling.
+- [x] **Automated Verification:** 37/37 total tests passing (100% green across all reactor modules), including `JournalBalancePropertyTest`, `PostingEngineTest`, `IdempotencyServiceTest`, `PaymentAndRefundFlowTest`, and `AccountServiceStatementTest`.
+- [x] **Spotless Check:** `mvn spotless:check` passing with zero formatting violations.
 
 ---
 

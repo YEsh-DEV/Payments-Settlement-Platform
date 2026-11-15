@@ -28,6 +28,14 @@ public record Money(long amount, String currency) implements Comparable<Money>, 
     return new Money(paise, DEFAULT_CURRENCY);
   }
 
+  public static Money zero() {
+    return ZERO;
+  }
+
+  public long paise() {
+    return this.amount;
+  }
+
   public static Money ofRupees(long rupees) {
     return new Money(Math.multiplyExact(rupees, 100L), DEFAULT_CURRENCY);
   }
@@ -54,6 +62,10 @@ public record Money(long amount, String currency) implements Comparable<Money>, 
     long numerator = Math.multiplyExact(this.amount, (long) bps);
     long result = (numerator + 5000L) / 10000L;
     return new Money(result, this.currency);
+  }
+
+  public Money calculateFeeBps(int bps) {
+    return percentageBps(bps);
   }
 
   public boolean isPositive() {
