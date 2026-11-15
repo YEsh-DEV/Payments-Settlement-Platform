@@ -6,12 +6,15 @@ import io.github.yesh.paycore.settlement.domain.CaseStatus;
 import io.github.yesh.paycore.settlement.domain.DiscrepancyCase;
 import io.github.yesh.paycore.settlement.repository.CaseNoteRepository;
 import io.github.yesh.paycore.settlement.repository.CaseRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,10 +26,20 @@ public class SlaEscalationDaemon {
 
   private final CaseRepository caseRepository;
   private final CaseNoteRepository noteRepository;
+  private final MeterRegistry meterRegistry;
 
   public SlaEscalationDaemon(CaseRepository caseRepository, CaseNoteRepository noteRepository) {
+    this(caseRepository, noteRepository, new SimpleMeterRegistry());
+  }
+
+  @Autowired
+  public SlaEscalationDaemon(
+      CaseRepository caseRepository,
+      CaseNoteRepository noteRepository,
+      MeterRegistry meterRegistry) {
     this.caseRepository = caseRepository;
     this.noteRepository = noteRepository;
+    this.meterRegistry = meterRegistry;
   }
 
   @Scheduled(cron = "${paycore.cases.escalation-cron:0 * * * * *}")
@@ -83,6 +96,7 @@ public class SlaEscalationDaemon {
           c.getStatus(),
           c.getSeverity());
 
+      meterRegistry.counter("paycore_cases_escalated_total").increment();
       escalatedCount++;
     }
 

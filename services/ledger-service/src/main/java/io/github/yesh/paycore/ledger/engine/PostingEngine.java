@@ -12,8 +12,12 @@ import io.github.yesh.paycore.ledger.repository.AccountRepository;
 import io.github.yesh.paycore.ledger.repository.JournalRepository;
 import io.github.yesh.paycore.ledger.repository.LedgerEntryRepository;
 import io.github.yesh.paycore.ledger.repository.OutboxEventRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Isolation;
@@ -31,6 +35,7 @@ public class PostingEngine {
   private final LedgerEntryRepository ledgerEntryRepository;
   private final OutboxEventRepository outboxEventRepository;
   private final ObjectMapper objectMapper;
+  private final MeterRegistry meterRegistry;
 
   public PostingEngine(
       AccountRepository accountRepository,
@@ -38,15 +43,55 @@ public class PostingEngine {
       LedgerEntryRepository ledgerEntryRepository,
       OutboxEventRepository outboxEventRepository,
       ObjectMapper objectMapper) {
+    this(
+        accountRepository,
+        journalRepository,
+        ledgerEntryRepository,
+        outboxEventRepository,
+        objectMapper,
+        new SimpleMeterRegistry());
+  }
+
+  @Autowired
+  public PostingEngine(
+      AccountRepository accountRepository,
+      JournalRepository journalRepository,
+      LedgerEntryRepository ledgerEntryRepository,
+      OutboxEventRepository outboxEventRepository,
+      ObjectMapper objectMapper,
+      MeterRegistry meterRegistry) {
     this.accountRepository = accountRepository;
     this.journalRepository = journalRepository;
     this.ledgerEntryRepository = ledgerEntryRepository;
     this.outboxEventRepository = outboxEventRepository;
     this.objectMapper = objectMapper;
+    this.meterRegistry = meterRegistry;
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
   public PostingResult post(JournalRequest request) {
+    Timer.Sample sample = Timer.start(meterRegistry);
+    try {
+      PostingResult result = executePost(request);
+      sample.stop(
+          Timer.builder("paycore_ledger_post_duration_seconds")
+              .tag("strategy", "S0_PESSIMISTIC")
+              .tag("status", "SUCCESS")
+              .description("Duration of ledger double-entry journal postings")
+              .register(meterRegistry));
+      return result;
+    } catch (Exception e) {
+      sample.stop(
+          Timer.builder("paycore_ledger_post_duration_seconds")
+              .tag("strategy", "S0_PESSIMISTIC")
+              .tag("status", "FAILURE")
+              .description("Duration of ledger double-entry journal postings")
+              .register(meterRegistry));
+      throw e;
+    }
+  }
+
+  private PostingResult executePost(JournalRequest request) {
     // Invariant I6: Idempotent Execution
     Optional<Journal> existing = journalRepository.findByIdempotencyKey(request.idempotencyKey());
     if (existing.isPresent()) {

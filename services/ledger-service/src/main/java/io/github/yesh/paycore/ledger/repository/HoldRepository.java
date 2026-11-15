@@ -17,4 +17,6 @@ public interface HoldRepository extends JpaRepository<Hold, UUID> {
   List<Hold> findByAccountIdAndStatus(UUID accountId, HoldStatus status);
 
   List<Hold> findByStatusAndExpiresAtBefore(HoldStatus status, Instant now);
+
+  long countByStatus(HoldStatus status);
 }

@@ -14,10 +14,14 @@ import io.github.yesh.paycore.ledger.dto.JournalRequest;
 import io.github.yesh.paycore.ledger.repository.AccountRepository;
 import io.github.yesh.paycore.ledger.repository.HoldRepository;
 import io.github.yesh.paycore.ledger.strategy.PostingStrategyRouter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,9 +37,24 @@ public class HoldService {
       HoldRepository holdRepository,
       AccountRepository accountRepository,
       PostingStrategyRouter strategyRouter) {
+    this(holdRepository, accountRepository, strategyRouter, new SimpleMeterRegistry());
+  }
+
+  @Autowired
+  public HoldService(
+      HoldRepository holdRepository,
+      AccountRepository accountRepository,
+      PostingStrategyRouter strategyRouter,
+      MeterRegistry meterRegistry) {
     this.holdRepository = holdRepository;
     this.accountRepository = accountRepository;
     this.strategyRouter = strategyRouter;
+    Gauge.builder(
+            "paycore_ledger_active_holds",
+            holdRepository,
+            repo -> repo.countByStatus(HoldStatus.ACTIVE))
+        .description("Number of currently held funds authorizations")
+        .register(meterRegistry);
   }
 
   @Transactional

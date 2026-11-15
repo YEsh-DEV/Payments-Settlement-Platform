@@ -5,6 +5,9 @@ import io.github.yesh.paycore.settlement.domain.*;
 import io.github.yesh.paycore.settlement.dto.ReconciliationRunRequest;
 import io.github.yesh.paycore.settlement.dto.ReconciliationRunResponse;
 import io.github.yesh.paycore.settlement.repository.*;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -12,6 +15,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +33,7 @@ public class ReconciliationEngine {
   private final CaseRepository caseRepository;
   private final SimulationManifestRepository manifestRepository;
   private final ObjectMapper objectMapper;
+  private final MeterRegistry meterRegistry;
 
   public ReconciliationEngine(
       ReconciliationRunRepository runRepository,
@@ -40,6 +45,31 @@ public class ReconciliationEngine {
       CaseRepository caseRepository,
       SimulationManifestRepository manifestRepository,
       ObjectMapper objectMapper) {
+    this(
+        runRepository,
+        matchRepository,
+        recordRepository,
+        lineRepository,
+        batchRepository,
+        depositRepository,
+        caseRepository,
+        manifestRepository,
+        objectMapper,
+        new SimpleMeterRegistry());
+  }
+
+  @Autowired
+  public ReconciliationEngine(
+      ReconciliationRunRepository runRepository,
+      ReconciliationMatchRepository matchRepository,
+      SettlementRecordRepository recordRepository,
+      ProviderLineRepository lineRepository,
+      BatchRepository batchRepository,
+      BankDepositRepository depositRepository,
+      CaseRepository caseRepository,
+      SimulationManifestRepository manifestRepository,
+      ObjectMapper objectMapper,
+      MeterRegistry meterRegistry) {
     this.runRepository = runRepository;
     this.matchRepository = matchRepository;
     this.recordRepository = recordRepository;
@@ -49,6 +79,7 @@ public class ReconciliationEngine {
     this.caseRepository = caseRepository;
     this.manifestRepository = manifestRepository;
     this.objectMapper = objectMapper;
+    this.meterRegistry = meterRegistry;
   }
 
   @Transactional
@@ -430,6 +461,11 @@ public class ReconciliationEngine {
     run.setDiscrepancyCount(discrepancyCount);
     run.setUnmatchedCount(Math.max(0, unmatchedCount));
     run.setTotalVariancePaise(totalVariance);
+    DistributionSummary.builder("paycore_reconciliation_variance_paise")
+        .baseUnit("paise")
+        .description("Distribution of total detected reconciliation variance")
+        .register(meterRegistry)
+        .record(totalVariance);
 
     if (batchId != null) {
       List<SimulationManifest> manifests = manifestRepository.findByBatchId(batchId);

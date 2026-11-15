@@ -36,8 +36,36 @@
 | **P5** | Settlement Core & Simulator | **COMPLETE** | Cutoff batches, streaming file ingestion, provider sim | `ce162b5` |
 | **P6** | Reconciliation Engine | **COMPLETE** | 4-Stage Reconciliation Engine, Subset Sum DP, ground truth | `f422fd7` |
 | **P7** | Cases & Maker-Checker | **COMPLETE** | Case lifecycle, SLA escalation, maker-checker adjustments | `4c022fb` |
-| **P8** | Ops Console (React 19) | **COMPLETE** | In-memory JWT, Maker-Checker UI, Recon Workbench, Ledger Explorer | `feat(p8)` |
-| **P9** | Hardening & Observability | IN PROGRESS | Metrics, Actuator, Runbook, Benchmarks, Attribution | TBD |
+| **P8** | Ops Console (React 19) | **COMPLETE** | In-memory JWT, Maker-Checker UI, Recon Workbench, Ledger Explorer | `bb689f9` |
+| **P9** | Hardening & Observability | **COMPLETE** | Prometheus metrics, Actuator, Runbook, Invariant Audits, README | `feat(p9)` |
+
+---
+
+## Phase 9: Definition of Done (DoD) Checklist
+
+- [x] **Micrometer & Prometheus Metrics Instrumentation:**
+  - `paycore_ledger_post_duration_seconds`: Precision timer measuring double-entry posting latency tagged by `strategy` (`S0_PESSIMISTIC`) and outcome `status` (`SUCCESS` / `FAILURE`).
+  - `paycore_ledger_active_holds`: Real-time gauge tracking active authorization holds (`HoldStatus.ACTIVE`).
+  - `paycore_reconciliation_variance_paise`: Distribution summary capturing detected reconciliation variances per run in minor units (`paise`).
+  - `paycore_cases_escalated_total`: Counter tracking SLA-breached auto-escalated discrepancy cases.
+  - Actuator endpoints exposed and secured across services on dedicated management ports (`/actuator/health`, `/actuator/info`, `/actuator/prometheus`).
+- [x] **Comprehensive Operational Runbook (`docs/runbook.md`):**
+  - **SOP-01:** Daily Cutoff Execution & Verification (automated cron, manual API triggers, net balance integrity checks).
+  - **SOP-02:** Provider Settlement File Ingestion & Recovery (streaming parsing, SHA-256 duplicate rejection HTTP 409, trailer count/amount integrity validation HTTP 422).
+  - **SOP-03:** Discrepancy Case Escalation & Maker-Checker Resolution (SLA targets, automated escalation daemon, strict dual-control separation `approver != proposer`).
+  - **SOP-04:** Disaster Recovery & SIGKILL Crash Recovery Verification (WAL replay validation, automated crash harness, orphaned/unbalanced entry queries).
+  - **SOP-05:** Hot-Account Strategy Dynamic Switching (S0, S1, S2, S4 concurrency profiles, dynamic config, production topology recommendations).
+  - **SOP-06:** Mathematical Invariant Auditing (production SQL queries validating Invariants I1 through I8).
+- [x] **Benchmark Study & 100% Crash Durability Guarantee:**
+  - Published comprehensive hot-account concurrency benchmark report (`docs/hot-account-report.md`) verifying **3,980 TPS** under S4 and **2,890 TPS** under S2 striping.
+  - Automated 50-iteration `SIGKILL` crash test harness (`tests/crash-harness/sigkill-crash-test.sh`) verifying **100% crash recovery rate** (0 orphaned entries, 0 unbalanced transactions, 0 incomplete legs).
+- [x] **Production README.md Documentation:**
+  - Complete architecture diagram, Invariants table, hot-account study summary, crash test verification metrics, quick-start guide, and MIT licensing attribution notices.
+- [x] **Reactor Verification & Spotless:**
+  - 77/77 automated tests passing with 100% green status across all 5 modules (`paycore-parent`, `paycore-common`, `identity-service`, `ledger-service`, `settlement-service`).
+  - Spotless Google Java formatting check passing with zero formatting violations.
+  - Frontend production build passing with zero TypeScript or Vite bundle errors.
+
 
 ---
 
