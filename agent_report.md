@@ -34,10 +34,30 @@
 | **P3** | Hot-Account Study & Crash Harness | **COMPLETE** | Strategies S0/S1/S2/S4, benchmarks, SIGKILL harness | `0e126ce` |
 | **P4** | Holds & Payouts | **COMPLETE** | Holds auto-release, Payout states, Adjustments | `0162df6` |
 | **P5** | Settlement Core & Simulator | **COMPLETE** | Cutoff batches, streaming file ingestion, provider sim | `ce162b5` |
-| **P6** | Reconciliation Engine | **COMPLETE** | 4-Stage Reconciliation Engine, Subset Sum DP, ground truth | `feat(p6)` |
-| **P7** | Cases & Maker-Checker | **IN PROGRESS** | Case lifecycle, SLA escalation, maker-checker adjustments | TBD |
-| **P8** | Ops Console (React 19) | QUEUED | Pending P7 | TBD |
+| **P6** | Reconciliation Engine | **COMPLETE** | 4-Stage Reconciliation Engine, Subset Sum DP, ground truth | `f422fd7` |
+| **P7** | Cases & Maker-Checker | **COMPLETE** | Case lifecycle, SLA escalation, maker-checker adjustments | `feat(p7)` |
+| **P8** | Ops Console (React 19) | **IN PROGRESS** | Role-based dashboard, ledger explorer, recon workbench | TBD |
 | **P9** | Hardening & Observability | QUEUED | Pending P8 | TBD |
+
+---
+
+## Phase 7: Definition of Done (DoD) Checklist
+
+- [x] **Case Lifecycle Management (10.5):**
+  - States: `OPEN`, `IN_REVIEW`, `ESCALATED`, `RESOLVED`, `WRITTEN_OFF`.
+  - State guards: Terminal states (`RESOLVED`, `WRITTEN_OFF`) cannot be transitioned or modified; starting work (`IN_REVIEW`) strictly requires an assignee.
+  - Optimistic locking: Handled via `@Version` column; concurrent updates throw `CaseConflictException` returning HTTP 409 (`case_modified`).
+  - Immutable timeline audit notes: Append-only comments recorded via `CaseNoteRepository`.
+- [x] **Automated SLA Escalation Daemon (10.5):**
+  - Background scheduler `SlaEscalationDaemon` sweeping past-deadline non-terminal cases every minute.
+  - Automatic severity elevation: `LOW` $\to$ `MEDIUM` $\to$ `HIGH` $\to$ `CRITICAL` (capped at CRITICAL).
+  - SLA extension: Deadlines extended by half of the elevated SLA duration; automated system note recorded to the timeline.
+- [x] **Maker-Checker Adjustments (10.6):**
+  - Fixed templates enforced: `FEE_VARIANCE` (DR `PROVIDER_FEE_EXPENSE`, CR `PROVIDER_RECEIVABLE`) and `WRITE_OFF` (DR `WRITE_OFF_EXPENSE`, CR `PROVIDER_RECEIVABLE`).
+  - Maker-checker separation: Approver must differ from proposer (`approver != proposed_by`). Proposers attempting self-approval are rejected with `MakerCheckerViolationException` (also enforced at schema level via `ck_cases_maker_checker`).
+  - Approval effect: Transitions adjustment to `POSTED` and resolves corresponding case (`RESOLVED` or `WRITTEN_OFF`).
+- [x] **Automated Verification:** 23/23 tests passing in `settlement-service` (77/77 total tests passing across reactor with 100% green status).
+- [x] **Spotless Check:** `mvn spotless:check` passing across all reactor modules.
 
 ---
 
