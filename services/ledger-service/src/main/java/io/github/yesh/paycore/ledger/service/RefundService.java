@@ -8,9 +8,9 @@ import io.github.yesh.paycore.ledger.dto.JournalRequest;
 import io.github.yesh.paycore.ledger.dto.PostingResult;
 import io.github.yesh.paycore.ledger.dto.RefundRequest;
 import io.github.yesh.paycore.ledger.dto.RefundResponse;
-import io.github.yesh.paycore.ledger.engine.PostingEngine;
 import io.github.yesh.paycore.ledger.idempotency.IdempotencyService;
 import io.github.yesh.paycore.ledger.repository.*;
+import io.github.yesh.paycore.ledger.strategy.PostingStrategyRouter;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
@@ -24,7 +24,7 @@ public class RefundService {
   private final PaymentRepository paymentRepository;
   private final SellerRepository sellerRepository;
   private final AccountRepository accountRepository;
-  private final PostingEngine postingEngine;
+  private final PostingStrategyRouter strategyRouter;
   private final IdempotencyService idempotencyService;
 
   public RefundService(
@@ -32,13 +32,13 @@ public class RefundService {
       PaymentRepository paymentRepository,
       SellerRepository sellerRepository,
       AccountRepository accountRepository,
-      PostingEngine postingEngine,
+      PostingStrategyRouter strategyRouter,
       IdempotencyService idempotencyService) {
     this.refundRepository = refundRepository;
     this.paymentRepository = paymentRepository;
     this.sellerRepository = sellerRepository;
     this.accountRepository = accountRepository;
-    this.postingEngine = postingEngine;
+    this.strategyRouter = strategyRouter;
     this.idempotencyService = idempotencyService;
   }
 
@@ -155,7 +155,7 @@ public class RefundService {
                 + (request.reason() != null ? ": " + request.reason() : ""),
             legs);
 
-    PostingResult postingResult = postingEngine.post(journalRequest);
+    PostingResult postingResult = strategyRouter.getActiveStrategy().post(journalRequest);
 
     Refund refund =
         new Refund(

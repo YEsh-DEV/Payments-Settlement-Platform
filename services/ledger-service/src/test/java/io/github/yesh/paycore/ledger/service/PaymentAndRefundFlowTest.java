@@ -10,6 +10,8 @@ import io.github.yesh.paycore.ledger.dto.*;
 import io.github.yesh.paycore.ledger.engine.PostingEngine;
 import io.github.yesh.paycore.ledger.idempotency.IdempotencyService;
 import io.github.yesh.paycore.ledger.repository.*;
+import io.github.yesh.paycore.ledger.strategy.PostingStrategyRouter;
+import io.github.yesh.paycore.ledger.strategy.S0PessimisticStrategy;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,20 +41,19 @@ class PaymentAndRefundFlowTest {
     IdempotencyService idempotencyService =
         new IdempotencyService(idempotencyRecordRepository, new ObjectMapper());
     sellerService = new SellerService(sellerRepository, accountRepository);
+    PostingStrategyRouter router =
+        new PostingStrategyRouter(
+            List.of(new S0PessimisticStrategy(postingEngine)), "S0_PESSIMISTIC");
     paymentService =
         new PaymentService(
-            paymentRepository,
-            sellerRepository,
-            accountRepository,
-            postingEngine,
-            idempotencyService);
+            paymentRepository, sellerRepository, accountRepository, router, idempotencyService);
     refundService =
         new RefundService(
             refundRepository,
             paymentRepository,
             sellerRepository,
             accountRepository,
-            postingEngine,
+            router,
             idempotencyService);
   }
 
