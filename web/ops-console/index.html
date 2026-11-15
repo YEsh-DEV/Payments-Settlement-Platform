@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="IssueFlow — a fast, Jira-style issue tracker for modern product teams. Plan, track, and ship work that matters."
+    />
+    <meta name="theme-color" content="#0c66e4" />
+    <title>IssueFlow — Issue Tracking</title>
+
+    <!--
+      Perf: load Inter from the document head instead of a CSS @import.
+      A CSS @import forces a serial request chain (download index.css -> parse ->
+      then fetch the font). Preconnecting here lets the font fetch start in
+      parallel, and display=swap renders text immediately with a fallback (no FOIT).
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
