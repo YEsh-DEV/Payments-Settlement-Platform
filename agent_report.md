@@ -31,13 +31,31 @@
 | **P0** | Foundations & Monorepo Skeleton | **COMPLETE** | Build green, Spotless verified, Compose valid | `13ff033` |
 | **P1** | Identity Service | **COMPLETE** | RS256 JWKS, Refresh Rotation, Denylist, User Admin | `36388ac` |
 | **P2** | Ledger Service MVP | **COMPLETE** | Double-entry posting engine, Invariants I1-I8, Idempotency | `a5fc42b` |
-| **P3** | Hot-Account Study & Crash Harness | **COMPLETE** | Strategies S0/S1/S2/S4, benchmarks, SIGKILL harness | `feat(p3)` |
-| **P4** | Holds & Payouts | **IN PROGRESS** | Holds auto-release, Payout states, Deposit posting | TBD |
-| **P5** | Settlement Core & Simulator | QUEUED | Pending P4 | TBD |
+| **P3** | Hot-Account Study & Crash Harness | **COMPLETE** | Strategies S0/S1/S2/S4, benchmarks, SIGKILL harness | `0e126ce` |
+| **P4** | Holds & Payouts | **COMPLETE** | Holds auto-release, Payout states, Adjustments | `feat(p4)` |
+| **P5** | Settlement Core & Simulator | **IN PROGRESS** | Cutoff batches, streaming file ingestion, provider sim | TBD |
 | **P6** | Reconciliation Engine | QUEUED | Pending P5 | TBD |
 | **P7** | Cases & Maker-Checker | QUEUED | Pending P6 | TBD |
 | **P8** | Ops Console (React 19) | QUEUED | Pending P7 | TBD |
 | **P9** | Hardening & Observability | QUEUED | Pending P8 | TBD |
+
+---
+
+## Phase 4: Definition of Done (DoD) Checklist
+
+- [x] **Authorization Holds Lifecycle (F-L-04):**
+  - Hold Creation: atomicity and balance reservation via `locked_balance_paise`, verifying `available_balance >= amount`.
+  - Hold Release: decrements `locked_balance_paise` and transitions status to `RELEASED`.
+  - Hold Capture: unlocks held funds and posts double-entry journal directly to destination account, transitioning status to `CAPTURED`.
+- [x] **Holds Auto-Release Daemon:** Background scheduler `HoldAutoReleaseDaemon` sweeping expired authorization holds (`expires_at < NOW()`) every minute.
+- [x] **Payout State Lifecycle (F-L-05):**
+  - Initiation: checks merchant available funds, debits `MERCHANT_${sellerId}` and credits `SETTLEMENT_PAYABLE`, status `INITIATED`.
+  - Bank Confirmation: debits `SETTLEMENT_PAYABLE` and credits `USER_FUNDS_IN_TRANSIT`, attaches `batchId`, status `PAID`.
+  - Bank Reversal: cleanly reverses payout funds back to merchant account upon failure notification, status `FAILED`.
+- [x] **Operational & Disputed Adjustments (F-L-07):** `AdjustmentService` posting audited double-entry adjustments (CREDIT or DEBIT) balanced against `ADJUSTMENT_EXPENSE`.
+- [x] **Web Controllers & DTOs:** `HoldController`, `PayoutController`, and `AdjustmentController` exposing REST APIs.
+- [x] **Automated Verification:** 54/54 tests passing across the reactor modules with 100% green status (`HoldServiceTest`, `PayoutServiceTest`, `AdjustmentServiceTest`).
+- [x] **Spotless Check:** `mvn spotless:check` passing with zero formatting violations.
 
 ---
 

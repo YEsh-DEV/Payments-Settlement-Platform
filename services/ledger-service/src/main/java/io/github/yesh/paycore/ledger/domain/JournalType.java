@@ -4,6 +4,7 @@ public enum JournalType {
   PAYMENT,
   REFUND,
   HOLD,
+  CAPTURE,
   RELEASE,
   PAYOUT,
   DEPOSIT,
