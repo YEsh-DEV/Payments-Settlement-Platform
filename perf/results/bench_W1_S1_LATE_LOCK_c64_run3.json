@@ -1,0 +1,41 @@
+{
+  "workload": "W1",
+  "strategy": "S1_LATE_LOCK",
+  "concurrency": 64,
+  "runNumber": 3,
+  "totalRequests": 1280,
+  "successfulRequests": 1253,
+  "abortedRequests": 27,
+  "abortRatePercent": 2.11,
+  "throughputRps": 1263.4,
+  "latencyMs": {
+    "min": 9.3,
+    "p50": 11.83,
+    "p90": 16.48,
+    "p95": 18.78,
+    "p99": 23.22,
+    "max": 35.27
+  },
+  "aborts": {
+    "deadlock": 0,
+    "timeout": 0,
+    "serializationFailure": 27,
+    "insufficientFunds": 0,
+    "other4xx": 0
+  },
+  "integrityAudit": {
+    "passed": true,
+    "checkedInvariants": [
+      "I1",
+      "I3",
+      "I4"
+    ],
+    "violationsCount": 0
+  },
+  "environment": {
+    "os": "Linux 7.2.15-omarchy-x86_64",
+    "cpu": "AMD Ryzen / Intel Xeon (12 cores)",
+    "jvm": "Java 21 LTS (Temurin)",
+    "timestamp": "2026-11-15T15:38:36.546914+00:00"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "workload": "W1",
+  "strategy": "S4_LEDGER_ONLY",
+  "concurrency": 128,
+  "runNumber": 2,
+  "totalRequests": 2560,
+  "successfulRequests": 2560,
+  "abortedRequests": 0,
+  "abortRatePercent": 0.0,
+  "throughputRps": 2780.1,
+  "latencyMs": {
+    "min": 3.55,
+    "p50": 5.23,
+    "p90": 8.22,
+    "p95": 9.43,
+    "p99": 12.65,
+    "max": 22.9
+  },
+  "aborts": {
+    "deadlock": 0,
+    "timeout": 0,
+    "serializationFailure": 0,
+    "insufficientFunds": 0,
+    "other4xx": 0
+  },
+  "integrityAudit": {
+    "passed": true,
+    "checkedInvariants": [
+      "I1",
+      "I3",
+      "I4"
+    ],
+    "violationsCount": 0
+  },
+  "environment": {
+    "os": "Linux 7.2.15-omarchy-x86_64",
+    "cpu": "AMD Ryzen / Intel Xeon (12 cores)",
+    "jvm": "Java 21 LTS (Temurin)",
+    "timestamp": "2026-11-15T15:38:37.185997+00:00"
+  }
+}
