@@ -65,13 +65,13 @@ class PayoutServiceTest {
     merchant.setBalancePaise(100000L); // Rs 1000 available
 
     Account settlementPayable =
-        new Account(SystemAccountInitializer.SETTLEMENT_PAYABLE, AccountType.LIABILITY, true, 10);
+        new Account(SystemAccountInitializer.PAYOUT_IN_TRANSIT, AccountType.LIABILITY, false, 1);
     settlementPayable.setId(UUID.randomUUID());
 
     when(payoutRepository.findByPayoutId("payout_1")).thenReturn(Optional.empty());
     when(sellerRepository.findBySellerId(sellerId)).thenReturn(Optional.of(seller));
     when(accountRepository.findByCode("MERCHANT_" + sellerId)).thenReturn(Optional.of(merchant));
-    when(accountRepository.findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE))
+    when(accountRepository.findByCode(SystemAccountInitializer.PAYOUT_IN_TRANSIT))
         .thenReturn(Optional.of(settlementPayable));
 
     when(strategyRouter.getActiveStrategy()).thenReturn(postingStrategy);
@@ -102,7 +102,7 @@ class PayoutServiceTest {
     when(payoutRepository.findByPayoutId("payout_overdraft")).thenReturn(Optional.empty());
     when(sellerRepository.findBySellerId(sellerId)).thenReturn(Optional.of(seller));
     when(accountRepository.findByCode("MERCHANT_" + sellerId)).thenReturn(Optional.of(merchant));
-    when(accountRepository.findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE))
+    when(accountRepository.findByCode(SystemAccountInitializer.PAYOUT_IN_TRANSIT))
         .thenReturn(Optional.of(new Account()));
 
     InitiatePayoutRequest request = new InitiatePayoutRequest("payout_overdraft", sellerId, 50000L);
@@ -121,18 +121,18 @@ class PayoutServiceTest {
         new Payout("payout_1", "sel_1", 50000L, PayoutStatus.INITIATED, null, UUID.randomUUID());
 
     Account settlementPayable =
-        new Account(SystemAccountInitializer.SETTLEMENT_PAYABLE, AccountType.LIABILITY, true, 10);
+        new Account(SystemAccountInitializer.PAYOUT_IN_TRANSIT, AccountType.LIABILITY, false, 1);
     settlementPayable.setId(UUID.randomUUID());
 
-    Account userFunds =
-        new Account(SystemAccountInitializer.USER_FUNDS_IN_TRANSIT, AccountType.ASSET, true, 10);
-    userFunds.setId(UUID.randomUUID());
+    Account bankCash =
+        new Account(SystemAccountInitializer.BANK_CASH, AccountType.ASSET, false, 1);
+    bankCash.setId(UUID.randomUUID());
 
     when(payoutRepository.findByPayoutId("payout_1")).thenReturn(Optional.of(payout));
-    when(accountRepository.findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE))
+    when(accountRepository.findByCode(SystemAccountInitializer.PAYOUT_IN_TRANSIT))
         .thenReturn(Optional.of(settlementPayable));
-    when(accountRepository.findByCode(SystemAccountInitializer.USER_FUNDS_IN_TRANSIT))
-        .thenReturn(Optional.of(userFunds));
+    when(accountRepository.findByCode(SystemAccountInitializer.BANK_CASH))
+        .thenReturn(Optional.of(bankCash));
     when(strategyRouter.getActiveStrategy()).thenReturn(postingStrategy);
     when(postingStrategy.post(any()))
         .thenReturn(
@@ -154,14 +154,14 @@ class PayoutServiceTest {
             "payout_fail", "sel_fail", 50000L, PayoutStatus.INITIATED, null, UUID.randomUUID());
 
     Account settlementPayable =
-        new Account(SystemAccountInitializer.SETTLEMENT_PAYABLE, AccountType.LIABILITY, true, 10);
+        new Account(SystemAccountInitializer.PAYOUT_IN_TRANSIT, AccountType.LIABILITY, false, 1);
     settlementPayable.setId(UUID.randomUUID());
 
     Account merchant = new Account("MERCHANT_sel_fail", AccountType.LIABILITY, false, 1);
     merchant.setId(UUID.randomUUID());
 
     when(payoutRepository.findByPayoutId("payout_fail")).thenReturn(Optional.of(payout));
-    when(accountRepository.findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE))
+    when(accountRepository.findByCode(SystemAccountInitializer.PAYOUT_IN_TRANSIT))
         .thenReturn(Optional.of(settlementPayable));
     when(accountRepository.findByCode("MERCHANT_sel_fail")).thenReturn(Optional.of(merchant));
     when(strategyRouter.getActiveStrategy()).thenReturn(postingStrategy);

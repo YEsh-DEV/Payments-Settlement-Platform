@@ -79,13 +79,14 @@ public class PaymentService {
 
     Account userFundsAccount =
         accountRepository
-            .findByCode(SystemAccountInitializer.USER_FUNDS_IN_TRANSIT)
+            .findByCode(SystemAccountInitializer.PROVIDER_RECEIVABLE)
+            .or(() -> accountRepository.findByCode(SystemAccountInitializer.USER_FUNDS_IN_TRANSIT))
             .orElseThrow(
                 () ->
                     new PayCoreException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
                         "account_missing",
-                        "System account missing"));
+                        "Provider receivable system account missing"));
 
     Account merchantAccount =
         accountRepository

@@ -60,6 +60,12 @@ public class S1LateLockStrategy implements PostingStrategy {
           existing.get(), ledgerEntryRepository.findByJournalId(existing.get().getId()));
     }
 
+    // Validate legs presence (Invariant I1: At least 2 legs)
+    if (request.legs() == null || request.legs().size() < 2) {
+      throw new PayCoreException(
+          HttpStatus.BAD_REQUEST, "invalid_legs", "Journal must have at least two legs");
+    }
+
     // Validate debits == credits
     Money totalDebits = Money.zero();
     Money totalCredits = Money.zero();
@@ -111,14 +117,17 @@ public class S1LateLockStrategy implements PostingStrategy {
       lockedAccounts.put(id, locked);
     }
 
-    // Step 2: Validate non-hot account balances & sufficiency
-    for (UUID id : nonHotIds) {
-      Account account = lockedAccounts.get(id);
-      long delta = computeNetDelta(account.getType(), request.legs(), id);
-      if (account.getCode().startsWith("MERCHANT_") || account.getType() == AccountType.LIABILITY) {
-        if (account.getBalancePaise() + delta - account.getLockedBalancePaise() < 0) {
-          throw new PayCoreException(
-              HttpStatus.UNPROCESSABLE_ENTITY, "insufficient_funds", "Insufficient balance");
+    // Step 2: Validate non-hot account balances & sufficiency (Invariant I5)
+    // Refunds and adjustments are permitted to reduce SELLER_PAYABLE below zero; payouts are not.
+    if (request.type() != JournalType.REFUND && request.type() != JournalType.ADJUSTMENT) {
+      for (UUID id : nonHotIds) {
+        Account account = lockedAccounts.get(id);
+        long delta = computeNetDelta(account.getType(), request.legs(), id);
+        if (account.getCode().startsWith("MERCHANT_") || account.getType() == AccountType.LIABILITY) {
+          if (account.getBalancePaise() + delta - account.getLockedBalancePaise() < 0) {
+            throw new PayCoreException(
+                HttpStatus.UNPROCESSABLE_ENTITY, "insufficient_funds", "Insufficient balance");
+          }
         }
       }
     }

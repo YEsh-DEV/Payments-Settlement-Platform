@@ -148,39 +148,83 @@ class PostingEngineTest {
 
   @Test
   @DisplayName(
-      "Invariant I5: Insufficient funds on merchant account throws 422 Unprocessable Entity")
-  void testInsufficientFundsThrows() {
+      "Invariant I5: Insufficient funds on merchant payout throws 422 Unprocessable Entity")
+  void testInsufficientFundsOnPayoutThrows() {
     UUID merchantId = UUID.randomUUID();
-    UUID userFundsId = UUID.randomUUID();
+    UUID payoutTransitId = UUID.randomUUID();
 
     Account merchant = new Account("MERCHANT_poor", AccountType.LIABILITY, false, 1);
     merchant.setId(merchantId);
     merchant.setBalancePaise(500L); // only Rs 5 available
 
-    Account userFunds = new Account("USER_FUNDS_IN_TRANSIT", AccountType.ASSET, true, 10);
-    userFunds.setId(userFundsId);
-    userFunds.setBalancePaise(10000L);
+    Account payoutTransit = new Account("PAYOUT_IN_TRANSIT", AccountType.LIABILITY, false, 1);
+    payoutTransit.setId(payoutTransitId);
+    payoutTransit.setBalancePaise(0L);
 
     when(journalRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-    when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, userFunds));
+    when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, payoutTransit));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
-    when(accountRepository.findByIdForUpdate(userFundsId)).thenReturn(Optional.of(userFunds));
+    when(accountRepository.findByIdForUpdate(payoutTransitId)).thenReturn(Optional.of(payoutTransit));
 
-    // Debit merchant for 1000 paise (Rs 10) when only 500 paise (Rs 5) available
+    // Debit merchant for 1000 paise (Rs 10) when only 500 paise (Rs 5) available on PAYOUT
     List<JournalLeg> legs =
         List.of(
             JournalLeg.debit(merchantId, Money.ofPaise(1000)),
-            JournalLeg.credit(userFundsId, Money.ofPaise(1000)));
+            JournalLeg.credit(payoutTransitId, Money.ofPaise(1000)));
 
     JournalRequest request =
         new JournalRequest(
-            "idemp_overdraft", "ref_overdraft", JournalType.REFUND, "Overdraft attempt", legs);
+            "idemp_overdraft", "ref_overdraft", JournalType.PAYOUT, "Payout overdraft attempt", legs);
 
     assertThatThrownBy(() -> postingEngine.post(request))
         .isInstanceOf(PayCoreException.class)
         .hasFieldOrPropertyWithValue("status", HttpStatus.UNPROCESSABLE_ENTITY);
 
     verify(ledgerEntryRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName(
+      "Invariant I5: Refunds permit SELLER_PAYABLE to go negative (seller owes platform)")
+  void testRefundAllowsNegativeAvailableBalance() {
+    UUID merchantId = UUID.randomUUID();
+    UUID providerReceivableId = UUID.randomUUID();
+
+    Account merchant = new Account("MERCHANT_overdrawn", AccountType.LIABILITY, false, 1);
+    merchant.setId(merchantId);
+    merchant.setBalancePaise(200L); // Rs 2 available
+
+    Account providerReceivable = new Account("PROVIDER_RECEIVABLE", AccountType.ASSET, true, 16);
+    providerReceivable.setId(providerReceivableId);
+    providerReceivable.setBalancePaise(10000L);
+
+    when(journalRepository.findByIdempotencyKey("idemp_ref_neg")).thenReturn(Optional.empty());
+    when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, providerReceivable));
+    when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
+    when(accountRepository.findByIdForUpdate(providerReceivableId)).thenReturn(Optional.of(providerReceivable));
+    when(journalRepository.save(any(Journal.class)))
+        .thenAnswer(inv -> {
+          Journal j = inv.getArgument(0);
+          j.setId(UUID.randomUUID());
+          return j;
+        });
+    when(ledgerEntryRepository.save(any(LedgerEntry.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    // Refund of Rs 10 (1000 paise): merchant debited 1000 paise when balance was 200 -> new balance = -800 paise
+    List<JournalLeg> legs =
+        List.of(
+            JournalLeg.debit(merchantId, Money.ofPaise(1000)),
+            JournalLeg.credit(providerReceivableId, Money.ofPaise(1000)));
+
+    JournalRequest request =
+        new JournalRequest(
+            "idemp_ref_neg", "ref_neg_1", JournalType.REFUND, "Customer return negative payable", legs);
+
+    PostingResult result = postingEngine.post(request);
+
+    assertThat(result).isNotNull();
+    assertThat(merchant.getBalancePaise()).isEqualTo(-800L);
+    verify(outboxEventRepository).save(any(OutboxEvent.class));
   }
 
   @Test

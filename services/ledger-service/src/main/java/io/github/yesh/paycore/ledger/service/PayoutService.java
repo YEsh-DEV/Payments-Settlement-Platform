@@ -73,13 +73,14 @@ public class PayoutService {
 
     Account settlementPayable =
         accountRepository
-            .findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE)
+            .findByCode(SystemAccountInitializer.PAYOUT_IN_TRANSIT)
+            .or(() -> accountRepository.findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE))
             .orElseThrow(
                 () ->
                     new PayCoreException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
                         "account_missing",
-                        "Settlement payable account missing"));
+                        "Payout in transit account missing"));
 
     if (merchantAccount.getAvailableBalancePaise() < request.amountPaise()) {
       throw new PayCoreException(
@@ -140,29 +141,31 @@ public class PayoutService {
 
     Account settlementPayable =
         accountRepository
-            .findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE)
+            .findByCode(SystemAccountInitializer.PAYOUT_IN_TRANSIT)
+            .or(() -> accountRepository.findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE))
             .orElseThrow(
                 () ->
                     new PayCoreException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
                         "account_missing",
-                        "Settlement payable account missing"));
+                        "Payout in transit account missing"));
 
-    Account userFunds =
+    Account bankCash =
         accountRepository
-            .findByCode(SystemAccountInitializer.USER_FUNDS_IN_TRANSIT)
+            .findByCode(SystemAccountInitializer.BANK_CASH)
+            .or(() -> accountRepository.findByCode(SystemAccountInitializer.USER_FUNDS_IN_TRANSIT))
             .orElseThrow(
                 () ->
                     new PayCoreException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
                         "account_missing",
-                        "User funds account missing"));
+                        "Bank cash account missing"));
 
     Money amount = Money.ofPaise(payout.getAmountPaise());
     List<JournalLeg> legs =
         List.of(
             JournalLeg.debit(settlementPayable.getId(), amount),
-            JournalLeg.credit(userFunds.getId(), amount));
+            JournalLeg.credit(bankCash.getId(), amount));
 
     JournalRequest journalRequest =
         new JournalRequest(
@@ -199,13 +202,14 @@ public class PayoutService {
 
     Account settlementPayable =
         accountRepository
-            .findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE)
+            .findByCode(SystemAccountInitializer.PAYOUT_IN_TRANSIT)
+            .or(() -> accountRepository.findByCode(SystemAccountInitializer.SETTLEMENT_PAYABLE))
             .orElseThrow(
                 () ->
                     new PayCoreException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
                         "account_missing",
-                        "Settlement payable missing"));
+                        "Payout in transit account missing"));
 
     Account merchantAccount =
         accountRepository

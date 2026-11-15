@@ -100,9 +100,9 @@ public class PostingEngine {
     }
 
     // Validate legs presence
-    if (request.legs() == null || request.legs().isEmpty()) {
+    if (request.legs() == null || request.legs().size() < 2) {
       throw new PayCoreException(
-          HttpStatus.BAD_REQUEST, "empty_legs", "Journal must have at least two legs");
+          HttpStatus.BAD_REQUEST, "invalid_legs", "Journal must have at least two legs");
     }
 
     // Invariant I4: Positive Amounts & Invariant I3: Currency Homogeneity (handled by Money)
@@ -179,26 +179,29 @@ public class PostingEngine {
       lockedAccountMap.put(id, locked);
     }
 
-    // Aggregate net changes per account to verify Invariant I5 (Non-negative balance)
-    for (UUID id : accountIds) {
-      Account account = lockedAccountMap.get(id);
-      long netDelta = computeNetDelta(account.getType(), request.legs(), id);
-      long prospectiveBalance = account.getBalancePaise() + netDelta;
+    // Invariant I5: Payout requests never exceed available SELLER_PAYABLE.
+    // Note: SELLER_PAYABLE may go negative through refund or dispute/adjustment journals (the seller owes the platform);
+    // only payout requests and non-refund operations may never overdraw available payable.
+    if (request.type() != JournalType.REFUND && request.type() != JournalType.ADJUSTMENT) {
+      for (UUID id : accountIds) {
+        Account account = lockedAccountMap.get(id);
+        long netDelta = computeNetDelta(account.getType(), request.legs(), id);
+        long prospectiveBalance = account.getBalancePaise() + netDelta;
 
-      // Merchant liability accounts must never have available balance < 0
-      if (account.getCode().startsWith("MERCHANT_") || account.getType() == AccountType.LIABILITY) {
-        long available = prospectiveBalance - account.getLockedBalancePaise();
-        if (available < 0) {
-          throw new PayCoreException(
-              HttpStatus.UNPROCESSABLE_ENTITY,
-              "insufficient_funds",
-              "Insufficient available balance in account "
-                  + account.getCode()
-                  + " (required: "
-                  + Math.abs(netDelta)
-                  + ", available: "
-                  + account.getAvailableBalancePaise()
-                  + ")");
+        if (account.getCode().startsWith("MERCHANT_") || account.getType() == AccountType.LIABILITY) {
+          long available = prospectiveBalance - account.getLockedBalancePaise();
+          if (available < 0) {
+            throw new PayCoreException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "insufficient_funds",
+                "Insufficient available balance in account "
+                    + account.getCode()
+                    + " (required: "
+                    + Math.abs(netDelta)
+                    + ", available: "
+                    + account.getAvailableBalancePaise()
+                    + ")");
+          }
         }
       }
     }

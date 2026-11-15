@@ -64,20 +64,20 @@ class PaymentAndRefundFlowTest {
     String sellerId = "sel_prime_merchant";
     Seller seller = new Seller(sellerId, "Prime Merchant", "STANDARD", 200); // 2.0% fee
 
-    Account userFunds =
-        new Account(SystemAccountInitializer.USER_FUNDS_IN_TRANSIT, AccountType.ASSET, true, 10);
-    userFunds.setId(UUID.randomUUID());
+    Account providerReceivable =
+        new Account(SystemAccountInitializer.PROVIDER_RECEIVABLE, AccountType.ASSET, true, 16);
+    providerReceivable.setId(UUID.randomUUID());
 
     Account merchantAccount = new Account("MERCHANT_" + sellerId, AccountType.LIABILITY, false, 1);
     merchantAccount.setId(UUID.randomUUID());
 
     Account feeAccount =
-        new Account(SystemAccountInitializer.PLATFORM_FEE_REVENUE, AccountType.REVENUE, true, 10);
+        new Account(SystemAccountInitializer.PLATFORM_FEE_REVENUE, AccountType.REVENUE, true, 16);
     feeAccount.setId(UUID.randomUUID());
 
     when(sellerRepository.findBySellerId(sellerId)).thenReturn(Optional.of(seller));
-    when(accountRepository.findByCode(SystemAccountInitializer.USER_FUNDS_IN_TRANSIT))
-        .thenReturn(Optional.of(userFunds));
+    when(accountRepository.findByCode(SystemAccountInitializer.PROVIDER_RECEIVABLE))
+        .thenReturn(Optional.of(providerReceivable));
     when(accountRepository.findByCode("MERCHANT_" + sellerId))
         .thenReturn(Optional.of(merchantAccount));
     when(accountRepository.findByCode(SystemAccountInitializer.PLATFORM_FEE_REVENUE))
