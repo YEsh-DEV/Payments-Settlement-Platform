@@ -3,21 +3,47 @@ package io.github.yesh.paycore.ledger.idempotency;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.yesh.paycore.common.error.PayCoreException;
+import io.github.yesh.paycore.ledger.domain.IdempotencyKeyId;
 import io.github.yesh.paycore.ledger.domain.IdempotencyRecord;
 import io.github.yesh.paycore.ledger.domain.IdempotencyStatus;
 import io.github.yesh.paycore.ledger.repository.IdempotencyRecordRepository;
+import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+/**
+ * Robust Idempotency Service adhering to Playbook Section 8.2:
+ * - Scoped by caller identity from authentication token.
+ * - HTTP 409 request_in_progress when key is in-flight.
+ * - HTTP 422 idempotency_key_reused when payload hash mismatches.
+ * - Stale in-flight takeover after 60s timeout.
+ * - Response header Idempotent-Replayed: true upon cache replay.
+ * - 7-day TTL cleanup scheduled daemon.
+ */
 @Service
 public class IdempotencyService {
+
+  private static final Logger log = LoggerFactory.getLogger(IdempotencyService.class);
+  public static final String IDEMPOTENT_REPLAYED_HEADER = "Idempotent-Replayed";
+  public static final long STALE_IN_FLIGHT_TIMEOUT_SECONDS = 60L;
 
   private final IdempotencyRecordRepository repository;
   private final ObjectMapper objectMapper;
@@ -29,59 +55,114 @@ public class IdempotencyService {
 
   public <T> T execute(
       String key, Object requestPayload, Supplier<T> action, Class<T> responseClass) {
+    return execute(resolveCurrentScope(), key, requestPayload, action, responseClass);
+  }
+
+  public <T> T execute(
+      String scope, String key, Object requestPayload, Supplier<T> action, Class<T> responseClass) {
     if (key == null || key.isBlank()) {
       return action.get();
     }
 
+    String resolvedScope = (scope != null && !scope.isBlank()) ? scope : "global";
     String payloadJson = serialize(requestPayload);
     String requestHash = hashPayload(payloadJson);
 
-    // Check existing record
-    Optional<IdempotencyRecord> existing = repository.findById(key);
+    // 1. Check existing record
+    Optional<IdempotencyRecord> existing = repository.findByScopeAndKey(resolvedScope, key);
     if (existing.isPresent()) {
       IdempotencyRecord record = existing.get();
+
+      // Invariant: payload hash verification
       if (!record.getRequestHash().equals(requestHash)) {
         throw new PayCoreException(
             HttpStatus.UNPROCESSABLE_ENTITY,
-            "idempotency_conflict",
+            "idempotency_key_reused",
             "Idempotency key reused with different request payload");
       }
+
       if (record.getStatus() == IdempotencyStatus.IN_FLIGHT) {
-        throw new PayCoreException(
-            HttpStatus.CONFLICT,
-            "concurrent_request",
-            "A request with this idempotency key is currently processing");
-      }
-      if (record.getStatus() == IdempotencyStatus.COMPLETED && record.getResponseBody() != null) {
+        // Stale in-flight recovery after 60 seconds
+        if (record.getCreatedAt().isBefore(Instant.now().minusSeconds(STALE_IN_FLIGHT_TIMEOUT_SECONDS))) {
+          log.warn("Taking over stale in-flight idempotency key {} (scoped: {}) created at {}",
+              key, resolvedScope, record.getCreatedAt());
+          takeOverStaleKey(resolvedScope, key, requestHash);
+        } else {
+          throw new PayCoreException(
+              HttpStatus.CONFLICT,
+              "request_in_progress",
+              "A request with this idempotency key is currently processing");
+        }
+      } else if (record.getStatus() == IdempotencyStatus.COMPLETED && record.getResponseBody() != null) {
+        markReplayedHeader();
         return deserialize(record.getResponseBody(), responseClass);
+      }
+    } else {
+      // 2. Claim key as IN_FLIGHT
+      try {
+        claimKey(resolvedScope, key, requestHash);
+      } catch (DataIntegrityViolationException ex) {
+        // Concurrent race condition handling
+        Optional<IdempotencyRecord> concurrent = repository.findByScopeAndKey(resolvedScope, key);
+        if (concurrent.isPresent()) {
+          IdempotencyRecord rec = concurrent.get();
+          if (!rec.getRequestHash().equals(requestHash)) {
+            throw new PayCoreException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "idempotency_key_reused",
+                "Idempotency key reused with different request payload");
+          }
+          if (rec.getStatus() == IdempotencyStatus.IN_FLIGHT) {
+            throw new PayCoreException(
+                HttpStatus.CONFLICT,
+                "request_in_progress",
+                "A request with this idempotency key is currently processing");
+          }
+          if (rec.getStatus() == IdempotencyStatus.COMPLETED && rec.getResponseBody() != null) {
+            markReplayedHeader();
+            return deserialize(rec.getResponseBody(), responseClass);
+          }
+        }
+        throw ex;
       }
     }
 
-    // Claim key as IN_FLIGHT
-    claimKey(key, requestHash);
-
+    // 3. Execute downstream business logic
     try {
       T result = action.get();
       String responseJson = serialize(result);
-      completeKey(key, responseJson);
+      completeKey(resolvedScope, key, responseJson);
       return result;
     } catch (Exception ex) {
-      failKey(key);
+      failKey(resolvedScope, key);
       throw ex;
     }
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public void claimKey(String key, String requestHash) {
+  public void claimKey(String scope, String key, String requestHash) {
     IdempotencyRecord record =
-        new IdempotencyRecord(key, requestHash, IdempotencyStatus.IN_FLIGHT, null);
+        new IdempotencyRecord(scope, key, requestHash, IdempotencyStatus.IN_FLIGHT, null);
     repository.save(record);
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public void completeKey(String key, String responseJson) {
+  public void takeOverStaleKey(String scope, String key, String requestHash) {
     repository
-        .findById(key)
+        .findByScopeAndKey(scope, key)
+        .ifPresent(
+            record -> {
+              record.setStatus(IdempotencyStatus.IN_FLIGHT);
+              record.setCreatedAt(Instant.now());
+              record.setResponseBody(null);
+              repository.save(record);
+            });
+  }
+
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void completeKey(String scope, String key, String responseJson) {
+    repository
+        .findByScopeAndKey(scope, key)
         .ifPresent(
             record -> {
               record.setStatus(IdempotencyStatus.COMPLETED);
@@ -91,14 +172,47 @@ public class IdempotencyService {
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public void failKey(String key) {
+  public void failKey(String scope, String key) {
     repository
-        .findById(key)
+        .findByScopeAndKey(scope, key)
         .ifPresent(
             record -> {
               record.setStatus(IdempotencyStatus.FAILED);
               repository.save(record);
             });
+  }
+
+  @Scheduled(cron = "${paycore.ledger.idempotency.cleanup-cron:0 0 3 * * *}")
+  @Transactional
+  public int cleanExpiredRecords() {
+    Instant cutoff = Instant.now().minus(7, ChronoUnit.DAYS);
+    int deleted = repository.deleteByStatusInAndCreatedAtBefore(
+        List.of(IdempotencyStatus.COMPLETED, IdempotencyStatus.FAILED), cutoff);
+    log.info("Idempotency cleanup sweep completed. Purged {} records older than 7 days.", deleted);
+    return deleted;
+  }
+
+  public String resolveCurrentScope() {
+    try {
+      Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+      if (auth != null && auth.isAuthenticated() && auth.getName() != null && !auth.getName().isBlank()) {
+        return auth.getName();
+      }
+    } catch (Exception ignored) {
+    }
+    return "global";
+  }
+
+  private void markReplayedHeader() {
+    try {
+      ServletRequestAttributes attrs =
+          (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+      if (attrs != null && attrs.getResponse() != null) {
+        HttpServletResponse response = attrs.getResponse();
+        response.setHeader(IDEMPOTENT_REPLAYED_HEADER, "true");
+      }
+    } catch (Exception ignored) {
+    }
   }
 
   public String hashPayload(String payload) {
