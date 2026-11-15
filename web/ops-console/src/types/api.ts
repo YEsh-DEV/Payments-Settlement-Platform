@@ -1,204 +1,197 @@
-export interface UserResponse {
-  id: number;
+export type UserRole = 'ADMIN' | 'ANALYST' | 'AUDITOR' | 'MERCHANT';
+
+export interface User {
+  id: string;
   username: string;
   email: string;
   fullName: string;
-  role: UserRole;
+  roles: UserRole[];
+  active: boolean;
+  createdAt: string;
 }
 
-export interface CreateUserRequest {
+export interface UserAdminResponse {
+  id: string;
   username: string;
-  email: string;
-  fullName: string;
-  role: string;
+  roles: string[];
+  sellerId?: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface CreateUserPayload {
+  username: string;
   password: string;
+  roles: string[];
+  sellerId?: string;
 }
 
-export interface UpdateUserRequest {
-  fullName: string;
-  role: string;
+export interface UpdateUserPayload {
+  roles?: string[];
+  enabled?: boolean;
 }
 
-export type UserRole = 'ADMIN' | 'DEVELOPER';
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  actor: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  details: string;
+  ipAddress?: string;
+}
 
-export interface TicketResponse {
-  id: number;
-  title: string;
-  description?: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  type: TicketType;
-  projectId: number;
-  assigneeId?: number;
-  assigneeUsername?: string;
-  dueDate?: string;
-  overdue: boolean;
+
+export type CaseType =
+  | 'AMOUNT_MISMATCH'
+  | 'FEE_VARIANCE'
+  | 'FEE_MISMATCH'
+  | 'DUPLICATE_PROVIDER_LINE'
+  | 'MISSING_IN_PROVIDER'
+  | 'MISSING_IN_LEDGER'
+  | 'DEPOSIT_UNMATCHED';
+
+export type CaseSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export type CaseStatus =
+  | 'OPEN'
+  | 'IN_REVIEW'
+  | 'ESCALATED'
+  | 'RESOLVED'
+  | 'WRITTEN_OFF';
+
+export interface DiscrepancyCase {
+  id: string;
+  caseId: string;
+  runId?: string;
+  recordId?: string;
+  providerLineId?: number;
+  depositId?: string;
+  type: CaseType;
+  severity: CaseSeverity;
+  status: CaseStatus;
+  assignedTo?: string;
+  proposedAction?: string;
+  proposedBy?: string;
+  approvedBy?: string;
+  variancePaise: number;
+  slaDeadline: string;
   version: number;
   createdAt: string;
-  updatedAt: string;
+  resolvedAt?: string;
 }
 
-export interface CreateTicketRequest {
-  title: string;
-  description?: string;
+export interface CaseNote {
+  id: number;
+  caseId: string;
+  author: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface SettlementBatch {
+  id: string;
+  batchId: string;
+  cutoffWindow: string;
   status: string;
-  priority: string;
+  totalCount: number;
+  totalGrossPaise: number;
+  totalFeePaise: number;
+  totalNetPaise: number;
+  createdAt: string;
+  closedAt?: string;
+}
+
+export interface SettlementRecord {
+  id: string;
+  recordId: string;
+  batchId?: string;
+  paymentId: string;
+  sellerId: string;
+  grossPaise: number;
+  feePaise: number;
+  netPaise: number;
+  status: string;
+  occurredAt: string;
+  createdAt: string;
+}
+
+export interface ReconciliationRun {
+  id: string;
+  runId: string;
+  batchId?: string;
+  fileId?: string;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  matchedCount: number;
+  discrepancyCount: number;
+  unmatchedCount: number;
+  totalVariancePaise: number;
+  precisionPct?: number;
+  recallPct?: number;
+  startedAt: string;
+  completedAt?: string;
+}
+
+export interface ReconciliationMatch {
+  id: number;
+  runId: string;
+  recordId: string;
+  providerLineId?: number;
+  bankDepositId?: string;
+  stage: string;
+  rule: string;
+  confidence: number;
+  evidenceJson?: string;
+  matchedAmountPaise: number;
+  variancePaise: number;
+  createdAt: string;
+}
+
+export interface AccountBalance {
+  code: string;
+  name: string;
   type: string;
-  projectId: number;
-  assigneeId?: number;
-  dueDate?: string;
+  currency: string;
+  balancePaise: number;
+  lockedBalancePaise: number;
+  availableBalancePaise: number;
 }
 
-export interface UpdateTicketRequest {
-  title?: string;
-  description?: string;
-  status?: string;
-  priority?: string;
-  type?: string;
-  assigneeId?: number;
-  dueDate?: string;
-}
-
-export type TicketStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
-export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type TicketType = 'BUG' | 'FEATURE' | 'TECHNICAL';
-
-export interface CommentResponse {
+export interface StatementEntry {
   id: number;
-  ticketId: number;
-  authorId: number;
-  authorUsername: string;
-  content: string;
-  version: number;
+  journalId: string;
+  type: 'DEBIT' | 'CREDIT';
+  amountPaise: number;
+  runningBalancePaise: number;
+  description?: string;
+  createdAt: string;
+}
+
+export interface SettlementAdjustment {
+  id: string;
+  adjustmentId: string;
+  caseId: string;
+  template: 'FEE_VARIANCE' | 'WRITE_OFF';
+  debitAccount: string;
+  creditAccount: string;
+  amountPaise: number;
+  status: 'PROPOSED' | 'APPROVED' | 'POSTED' | 'REJECTED';
+  proposedBy: string;
+  approvedBy?: string;
   createdAt: string;
   updatedAt: string;
-  mentionedUsers: UserSummary[];
 }
 
-export interface CreateCommentRequest {
-  content: string;
-}
-
-export interface UpdateCommentRequest {
-  content: string;
-  version: number;
-}
-
-export interface UserSummary {
-  id: number;
-  username: string;
-  fullName: string;
-}
-
-export interface AttachmentResponse {
-  id: number;
-  ticketId: number;
-  filename: string;
-  contentType: string;
-  sizeBytes: number;
-  createdAt: string;
-}
-
-export interface ImportResult {
-  created: number;
-  failed: number;
-  errors: RowError[];
-}
-
-export interface RowError {
-  row: number;
-  reason: string;
-}
-
-export interface ProjectResponse {
-  id: number;
-  name: string;
-  description?: string;
-  ownerId: number;
-  ownerUsername: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt?: string;
-}
-
-export interface CreateProjectRequest {
-  name: string;
-  description?: string;
-  ownerId: number;
-}
-
-export interface UpdateProjectRequest {
-  name?: string;
-  description?: string;
-}
-
-export interface WorkloadEntry {
-  userId: number;
-  username: string;
-  openTicketCount: number;
-}
-
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
-
-export interface AuthTokenResponse {
-  accessToken: string;
-  tokenType: string;
-  expiresIn: number;
-}
-
-export interface CurrentUserResponse {
-  id: number;
-  username: string;
-  email: string;
-  fullName: string;
-  role: UserRole;
-}
-
-export interface MentionResponse {
-  id: number;
-  commentId: number;
-  ticketId: number;
-  authorId: number;
-  authorUsername: string;
-  commentContent: string;
-  mentionedAt: string;
-}
-
-export interface PagedResponseMentionResponse {
-  data: MentionResponse[];
-  total: number;
-  page: number;
-}
-
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'AUTO_ASSIGN' | 'AUTO_ESCALATE' | 'LOGIN' | 'LOGOUT';
-export type AuditActor = 'USER' | 'SYSTEM';
-
-export interface AuditLogResponse {
-  id: number;
-  action: AuditAction;
-  entityType: string;
-  entityId: number;
-  performedBy: number;
-  actor: AuditActor;
-  payload?: string;
-  timestamp: string;
-  createdAt: string;
-}
-
-export interface PagedResponseAuditLogResponse {
-  data: AuditLogResponse[];
-  total: number;
-  page: number;
-}
-
-export interface ApiError {
-  timestamp: string;
-  status: number;
-  error: string;
-  message: string;
-  path: string;
-  details?: string[];
+export interface SystemHealth {
+  status: 'UP' | 'DOWN';
+  activeStrategy: string;
+  invariantsPassing: boolean;
+  crashRecoveryVerified: boolean;
+  benchmarkReportUrl: string;
+  database: {
+    identity: string;
+    ledger: string;
+    settlement: string;
+  };
 }

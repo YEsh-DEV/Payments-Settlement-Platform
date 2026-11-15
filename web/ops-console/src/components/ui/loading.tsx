@@ -1,6 +1,12 @@
 import { Loader as Loader2 } from 'lucide-react';
 
-export function LoadingSpinner({ size = 'default' }: { size?: 'sm' | 'default' | 'lg' }) {
+export function LoadingSpinner({
+  size = 'default',
+  className = '',
+}: {
+  size?: 'sm' | 'default' | 'lg';
+  className?: string;
+}) {
   const sizeClasses = {
     sm: 'h-4 w-4',
     default: 'h-8 w-8',
@@ -8,9 +14,7 @@ export function LoadingSpinner({ size = 'default' }: { size?: 'sm' | 'default' |
   };
 
   return (
-    <div className="flex items-center justify-center p-8">
-      <Loader2 className={`${sizeClasses[size]} animate-spin text-primary`} />
-    </div>
+    <Loader2 className={`${sizeClasses[size]} animate-spin text-primary ${className}`} />
   );
 }
 

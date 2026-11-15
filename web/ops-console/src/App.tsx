@@ -8,33 +8,36 @@ import { LoginPage } from './pages/LoginPage';
 import { PageLoader } from './components/ui/loading';
 import './index.css';
 
-// Perf: authenticated pages pull in heavy deps (recharts, @dnd-kit, react-datepicker).
-// Lazy-loading them keeps those chunks out of the initial bundle, so the unauthenticated
-// login screen loads fast. The shell (Login, Layout, ProtectedRoute) stays eager because
-// it is needed on first paint; Suspense streams each page chunk on navigation.
+// Lazy-loaded pages to maintain high performance and small initial bundle size
 const DashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage }))
+);
+const CasesPage = lazy(() =>
+  import('./pages/CasesPage').then((m) => ({ default: m.CasesPage }))
+);
+const CaseDetailPage = lazy(() =>
+  import('./pages/CaseDetailPage').then((m) => ({ default: m.CaseDetailPage }))
+);
+const ReconciliationPage = lazy(() =>
+  import('./pages/ReconciliationPage').then((m) => ({ default: m.ReconciliationPage }))
+);
+const PayoutsPage = lazy(() =>
+  import('./pages/PayoutsPage').then((m) => ({ default: m.PayoutsPage }))
+);
+const LedgerPage = lazy(() =>
+  import('./pages/LedgerPage').then((m) => ({ default: m.LedgerPage }))
+);
+const MerchantPortalPage = lazy(() =>
+  import('./pages/MerchantPortalPage').then((m) => ({ default: m.MerchantPortalPage }))
 );
 const UsersPage = lazy(() =>
   import('./pages/UsersPage').then((m) => ({ default: m.UsersPage }))
 );
-const ProjectsPage = lazy(() =>
-  import('./pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage }))
-);
-const ProjectDetailPage = lazy(() =>
-  import('./pages/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage }))
-);
-const TicketsPage = lazy(() =>
-  import('./pages/TicketsPage').then((m) => ({ default: m.TicketsPage }))
-);
-const TicketDetailPage = lazy(() =>
-  import('./pages/TicketDetailPage').then((m) => ({ default: m.TicketDetailPage }))
-);
-const MentionsPage = lazy(() =>
-  import('./pages/MentionsPage').then((m) => ({ default: m.MentionsPage }))
-);
 const AuditLogsPage = lazy(() =>
   import('./pages/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage }))
+);
+const SystemPage = lazy(() =>
+  import('./pages/SystemPage').then((m) => ({ default: m.SystemPage }))
 );
 
 export default function App() {
@@ -47,7 +50,7 @@ export default function App() {
               {/* Public Routes */}
               <Route path="/login" element={<LoginPage />} />
 
-              {/* Protected Routes */}
+              {/* Protected Shell Routes */}
               <Route
                 element={
                   <ProtectedRoute>
@@ -55,16 +58,19 @@ export default function App() {
                   </ProtectedRoute>
                 }
               >
+                {/* Core Operations Routes */}
                 <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/projects" element={<ProjectsPage />} />
-                <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-                <Route path="/tickets" element={<TicketsPage />} />
-                <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
-                <Route path="/users/:userId/mentions" element={<MentionsPage />} />
+                <Route path="/cases" element={<CasesPage />} />
+                <Route path="/cases/:id" element={<CaseDetailPage />} />
+                <Route path="/reconciliation" element={<ReconciliationPage />} />
+                <Route path="/payouts" element={<PayoutsPage />} />
+                <Route path="/ledger" element={<LedgerPage />} />
+                <Route path="/me" element={<MerchantPortalPage />} />
+                <Route path="/system" element={<SystemPage />} />
 
                 {/* Admin Only Routes */}
                 <Route
-                  path="/users"
+                  path="/admin/users"
                   element={
                     <ProtectedRoute requiredRole="ADMIN">
                       <UsersPage />
@@ -72,7 +78,7 @@ export default function App() {
                   }
                 />
                 <Route
-                  path="/audit-logs"
+                  path="/admin/audit"
                   element={
                     <ProtectedRoute requiredRole="ADMIN">
                       <AuditLogsPage />
@@ -81,7 +87,7 @@ export default function App() {
                 />
               </Route>
 
-              {/* Default Route */}
+              {/* Default Fallbacks */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

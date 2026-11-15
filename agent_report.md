@@ -35,9 +35,45 @@
 | **P4** | Holds & Payouts | **COMPLETE** | Holds auto-release, Payout states, Adjustments | `0162df6` |
 | **P5** | Settlement Core & Simulator | **COMPLETE** | Cutoff batches, streaming file ingestion, provider sim | `ce162b5` |
 | **P6** | Reconciliation Engine | **COMPLETE** | 4-Stage Reconciliation Engine, Subset Sum DP, ground truth | `f422fd7` |
-| **P7** | Cases & Maker-Checker | **COMPLETE** | Case lifecycle, SLA escalation, maker-checker adjustments | `feat(p7)` |
-| **P8** | Ops Console (React 19) | **IN PROGRESS** | Role-based dashboard, ledger explorer, recon workbench | TBD |
-| **P9** | Hardening & Observability | QUEUED | Pending P8 | TBD |
+| **P7** | Cases & Maker-Checker | **COMPLETE** | Case lifecycle, SLA escalation, maker-checker adjustments | `4c022fb` |
+| **P8** | Ops Console (React 19) | **COMPLETE** | In-memory JWT, Maker-Checker UI, Recon Workbench, Ledger Explorer | `feat(p8)` |
+| **P9** | Hardening & Observability | IN PROGRESS | Metrics, Actuator, Runbook, Benchmarks, Attribution | TBD |
+
+---
+
+## Phase 8: Definition of Done (DoD) Checklist
+
+- [x] **Secure Token Management Architecture (Zero LocalStorage):**
+  - Completely eliminated all `localStorage` / `sessionStorage` token access across the entire frontend.
+  - Access tokens stored exclusively in-memory (`client.ts`).
+  - Refresh tokens exchanged via secure `httpOnly`, `SameSite=Strict` cookie over `/auth/refresh`.
+  - Single-flight refresh mutex lock with queued subscriber retries to prevent race conditions on concurrent 401 token expirations.
+- [x] **Discrepancy Cases & Dual Views (F-FE-01):**
+  - Interactive Kanban board (`OPEN`, `IN_REVIEW`, `ESCALATED`, `RESOLVED`) and structured table list view with real-time toggle.
+  - Severity filtering (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) with visual badge indicators.
+  - Optimistic drag-and-drop / dropdown state transitions with rollback on error.
+  - Concurrent conflict handling with HTTP 409 (`case_modified`) user feedback.
+- [x] **Dual-Control Maker-Checker UI (F-FE-02):**
+  - Dedicated Case Detail Page (`/cases/:id`) with discrepancy evidence panel and append-only audit timeline notes.
+  - Propose adjustment form with fixed financial templates (`FEE_VARIANCE`, `WRITE_OFF`).
+  - Dual-control verification: Admin approval box with explicit role validation, enforcing the 4-eyes principle (`approver != proposer`).
+- [x] **Reconciliation Workbench (F-FE-03):**
+  - Streaming file upload interface with SHA-256 fingerprinting and trailer integrity preview.
+  - Manual trigger button for automated reconciliation runs against active cutoff batches.
+  - Reconciliation runs history table displaying matched counts, discrepancy counts, and ground-truth precision/recall percentages.
+  - Line-level match drilldown displaying stage, matching rule, confidence rating, and matched amounts.
+- [x] **Ledger Explorer & Keyset Pagination (F-FE-04):**
+  - Account search supporting merchant accounts, clearing accounts, and system assets/liabilities.
+  - Balance cards displaying total balance, locked/held balance, and available balance in INR (`paise`).
+  - Keyset-paginated double-entry statement table with journal links, running balances, and DEBIT/CREDIT badges.
+- [x] **Merchant Self-Service Portal (`/me`):**
+  - Dedicated portal view displaying authenticated merchant's available balance, active authorization holds, and real-time transaction ledger statement.
+- [x] **User Administration & Audit Trail:**
+  - Admin operator management (`/admin/users`) with role assignment (`ADMIN`, `ANALYST`, `AUDITOR`, `MERCHANT`) and account status toggling.
+  - Immutable audit trail explorer (`/admin/audit`) with category filtering and JSON payload inspector.
+- [x] **Production Verification:**
+  - Full production build passing with zero errors: `tsc -b && vite build` generating optimized lazy-loaded chunks.
+
 
 ---
 

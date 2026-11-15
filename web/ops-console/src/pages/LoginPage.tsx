@@ -10,9 +10,10 @@ import {
   ArrowRight,
   User,
   Lock,
-  SquareKanban,
-  Workflow,
+  Scale,
+  RefreshCw,
   ShieldCheck,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -20,49 +21,60 @@ import { Logo, LogoMark } from '../components/Logo';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
 const HIGHLIGHTS = [
   {
-    icon: SquareKanban,
-    title: 'Boards that flow',
-    description: 'Drag issues across a Jira-style Kanban built for momentum.',
+    icon: Scale,
+    title: 'Immutable Double-Entry Ledger',
+    description: 'PostgreSQL trigger-enforced immutability, zero float, zero money loss.',
   },
   {
-    icon: Workflow,
-    title: 'Automated assignment',
-    description: 'New tickets route to the lightest-loaded developer, instantly.',
+    icon: RefreshCw,
+    title: 'Multi-Stage Reconciliation',
+    description: 'Line matching, fee variance detection, and subset-sum bank deposit clearing.',
   },
   {
     icon: ShieldCheck,
-    title: 'Audited & secure',
-    description: 'JWT auth, role-based access, and a full audit trail on every change.',
+    title: 'Dual-Control Maker-Checker',
+    description: 'Enforced 4-eyes principle on dispute adjustments and ledger write-offs.',
   },
 ];
 
-// One-click demo accounts (replaces exposing raw credentials as plain text).
 const DEMO_ACCOUNTS = [
   {
     role: 'admin' as const,
     label: 'Admin',
-    blurb: 'Full access',
+    blurb: 'Full ops control',
     icon: ShieldCheck,
-    credentials: { username: 'admin', password: 'admin123' },
+    credentials: { username: 'admin', password: 'password123' },
   },
   {
-    role: 'developer' as const,
-    label: 'Developer',
-    blurb: 'Assigned work',
-    icon: SquareKanban,
-    credentials: { username: 'developer', password: 'password123' },
+    role: 'analyst' as const,
+    label: 'Analyst',
+    blurb: 'Recon & Cases',
+    icon: Scale,
+    credentials: { username: 'analyst', password: 'password123' },
+  },
+  {
+    role: 'auditor' as const,
+    label: 'Auditor',
+    blurb: 'Read-only audit',
+    icon: RefreshCw,
+    credentials: { username: 'auditor', password: 'password123' },
+  },
+  {
+    role: 'merchant' as const,
+    label: 'Merchant',
+    blurb: 'Portal view',
+    icon: Store,
+    credentials: { username: 'merchant', password: 'password123' },
   },
 ];
 
-// Decorative particle field. Positions/timing are derived deterministically so the
-// layout is stable across renders; kept small and pure-CSS to stay off the main thread.
 const PARTICLES = Array.from({ length: 14 }, (_, i) => ({
   id: i,
   left: `${(i * 7 + 5) % 96}%`,
@@ -96,7 +108,7 @@ export function LoginPage() {
     setIsLoading(true);
     try {
       await login(data);
-      showToast('Welcome back!', 'success');
+      showToast('Welcome to PayCore Ops Console', 'success');
       navigate(from, { replace: true });
     } catch (error) {
       const message =
@@ -108,7 +120,6 @@ export function LoginPage() {
     }
   };
 
-  // Fill the visible fields (so the user sees what is happening), then sign in.
   const signInWithDemo = (credentials: LoginFormData) => {
     setValue('username', credentials.username, { shouldValidate: true });
     setValue('password', credentials.password, { shouldValidate: true });
@@ -117,7 +128,6 @@ export function LoginPage() {
 
   return (
     <main className="login-aurora relative flex min-h-dvh w-full items-center justify-center overflow-hidden px-4 py-10 sm:px-6">
-      {/* Ambient motion layers — decorative only, hidden from AT and under reduced-motion */}
       <div
         aria-hidden="true"
         className="login-orbs pointer-events-none absolute inset-0 overflow-hidden"
@@ -146,7 +156,6 @@ export function LoginPage() {
       </div>
 
       <div className="relative z-10 flex w-full max-w-6xl flex-col items-center justify-center gap-12 lg:flex-row lg:items-center lg:justify-between lg:gap-16">
-        {/* Brand / marketing panel (desktop) */}
         <section className="hidden w-full max-w-xl text-white lg:block">
           <div className="login-rise text-white">
             <Logo wordmarkClassName="text-2xl font-semibold tracking-tight" />
@@ -156,21 +165,20 @@ export function LoginPage() {
             className="login-rise mt-9 inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium tracking-wide text-white/85 ring-1 ring-white/20 backdrop-blur-sm"
             style={{ animationDelay: '80ms' }}
           >
-            Issue tracking, reimagined
+            Payments & Settlement Engine
           </span>
 
           <h1
             className="login-rise mt-5 text-balance text-4xl font-bold leading-[1.1] tracking-tight xl:text-5xl"
             style={{ animationDelay: '120ms' }}
           >
-            Plan, track, and ship work that matters.
+            Mission-critical financial ledger & reconciliation.
           </h1>
           <p
             className="login-rise mt-4 max-w-md text-base leading-relaxed text-white/75"
             style={{ animationDelay: '160ms' }}
           >
-            IssueFlow keeps your team aligned from backlog to done — the issue tracker
-            that works the way you do.
+            PayCore provides mathematical balance guarantees, automated 4-stage provider clearing, and audited dual-control resolution.
           </p>
 
           <ul className="mt-9 space-y-5">
@@ -195,13 +203,11 @@ export function LoginPage() {
           </ul>
         </section>
 
-        {/* Login form panel */}
         <section className="w-full max-w-md">
-          {/* Compact brand lockup for small screens (brand panel is desktop-only) */}
           <div className="mb-6 flex flex-col items-center gap-2 text-center lg:hidden">
             <LogoMark className="h-11 w-11" />
-            <span className="text-xl font-semibold tracking-tight text-white">IssueFlow</span>
-            <span className="text-sm text-white/70">Issue tracking, the way it should be.</span>
+            <span className="text-xl font-semibold tracking-tight text-white">PayCore</span>
+            <span className="text-sm text-white/70">Payments & Settlement Operations</span>
           </div>
 
           <div
@@ -209,15 +215,13 @@ export function LoginPage() {
             style={{ animationDelay: '120ms' }}
           >
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Log in to your account
+              Sign in to PayCore
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Welcome back. Enter your details to continue.
+              Enter your credentials to access operations console.
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="mt-7" noValidate>
-              {/* Integrated field group — both fields share one bordered surface that
-                  lights up on focus, with floating labels and leading icons. */}
               <div className="divide-y divide-border overflow-hidden rounded-xl border border-input bg-white/70 shadow-sm transition-all duration-150 focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/30">
                 <div className="relative">
                   <input
@@ -285,7 +289,7 @@ export function LoginPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
+                    Authenticating...
                   </>
                 ) : (
                   <>
@@ -296,11 +300,10 @@ export function LoginPage() {
               </button>
             </form>
 
-            {/* Demo accounts — one-click sign-in instead of exposing raw credentials */}
             <div className="mt-6">
               <div className="flex items-center gap-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />
-                or explore a demo
+                or choose role demo
                 <span className="h-px flex-1 bg-border" />
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
@@ -333,7 +336,7 @@ export function LoginPage() {
           </div>
 
           <p className="mt-6 text-center text-xs text-white/60">
-            IssueFlow — issue tracking, the way it should be.
+            PayCore — mission-critical financial settlement platform.
           </p>
         </section>
       </div>
