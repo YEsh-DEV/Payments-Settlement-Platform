@@ -28,9 +28,9 @@
 | Phase | Description | Status | Verification & DoD | Commit |
 | :--- | :--- | :--- | :--- | :--- |
 | **Setup** | Repo init, system design, ADRs, notices | **COMPLETE** | Remote connected, licenses verified | `7334455` |
-| **P0** | Foundations & Monorepo Skeleton | **COMPLETE** | Build green, Spotless verified, Compose valid | `feat(p0)` |
-| **P1** | Identity Service | **IN PROGRESS** | Scaffolding schemas & RS256 JWKS | TBD |
-| **P2** | Ledger Service MVP | QUEUED | Pending P1 | TBD |
+| **P0** | Foundations & Monorepo Skeleton | **COMPLETE** | Build green, Spotless verified, Compose valid | `13ff033` |
+| **P1** | Identity Service | **COMPLETE** | RS256 JWKS, Refresh Rotation, Denylist, User Admin | `feat(p1)` |
+| **P2** | Ledger Service MVP | **IN PROGRESS** | Double-entry posting engine, Invariants I1-I8 | TBD |
 | **P3** | Hot-Account Study & Crash Harness | QUEUED | Pending P2 | TBD |
 | **P4** | Holds & Payouts | QUEUED | Pending P3 | TBD |
 | **P5** | Settlement Core & Simulator | QUEUED | Pending P4 | TBD |
@@ -38,6 +38,20 @@
 | **P7** | Cases & Maker-Checker | QUEUED | Pending P6 | TBD |
 | **P8** | Ops Console (React 19) | QUEUED | Pending P7 | TBD |
 | **P9** | Hardening & Observability | QUEUED | Pending P8 | TBD |
+
+---
+
+## Phase 1: Definition of Done (DoD) Checklist
+
+- [x] **Schema & Migration:** Flyway `V1__init_identity.sql` creating isolated `users`, `refresh_tokens`, `service_clients`, `audit_log`, and PostgreSQL immutability trigger (`trg_identity_audit_immutability`).
+- [x] **Domain & Persistence:** JPA entities with native PostgreSQL array (`@JdbcTypeCode(SqlTypes.ARRAY)`) and JSONB (`@JdbcTypeCode(SqlTypes.JSON)`) mapping, repositories with transactional update queries.
+- [x] **RS256 JWKS Publisher:** `RsaKeyProvider` generating 2048-bit RSA key pairs, exposing public key set via `/.well-known/jwks.json` for distributed token verification.
+- [x] **Refresh Token Rotation & Reuse Detection:** Cryptographically secure 256-bit entropy refresh tokens, SHA-256 storage hashing, and instant token family invalidation upon replay detection.
+- [x] **Brute-Force & Denylist Protection:** `LoginAttemptService` locking accounts after 5 failures for 15 minutes; `TokenDenyListService` handling JTI revocation with fail-open fallback.
+- [x] **RBAC & Machine Auth:** `JwtAuthenticationFilter` verifying RS256 signatures, `SecurityConfig` enforcing stateless sessions and role-based permissions, client credentials machine grant (`/auth/service-token`).
+- [x] **Admin Self-Harm Prevention:** `UserService` and `UserAdminController` explicitly blocking admins from disabling or removing the `ADMIN` role from their own accounts.
+- [x] **Automated Verification:** 16 tests passing (100% green across reactor) covering token signing, claims, refresh rotation, replay attack prevention, lockout, and self-demotion prevention.
+- [x] **Spotless Check:** `mvn spotless:check` passing with zero formatting violations.
 
 ---
 
