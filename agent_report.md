@@ -32,12 +32,36 @@
 | **P1** | Identity Service | **COMPLETE** | RS256 JWKS, Refresh Rotation, Denylist, User Admin | `36388ac` |
 | **P2** | Ledger Service MVP | **COMPLETE** | Double-entry posting engine, Invariants I1-I8, Idempotency | `a5fc42b` |
 | **P3** | Hot-Account Study & Crash Harness | **COMPLETE** | Strategies S0/S1/S2/S4, benchmarks, SIGKILL harness | `0e126ce` |
-| **P4** | Holds & Payouts | **COMPLETE** | Holds auto-release, Payout states, Adjustments | `feat(p4)` |
-| **P5** | Settlement Core & Simulator | **IN PROGRESS** | Cutoff batches, streaming file ingestion, provider sim | TBD |
-| **P6** | Reconciliation Engine | QUEUED | Pending P5 | TBD |
+| **P4** | Holds & Payouts | **COMPLETE** | Holds auto-release, Payout states, Adjustments | `0162df6` |
+| **P5** | Settlement Core & Simulator | **COMPLETE** | Cutoff batches, streaming file ingestion, provider sim | `feat(p5)` |
+| **P6** | Reconciliation Engine | **IN PROGRESS** | 4-Stage Reconciliation Engine, match rules, case creation | TBD |
 | **P7** | Cases & Maker-Checker | QUEUED | Pending P6 | TBD |
 | **P8** | Ops Console (React 19) | QUEUED | Pending P7 | TBD |
 | **P9** | Hardening & Observability | QUEUED | Pending P8 | TBD |
+
+---
+
+## Phase 5: Definition of Done (DoD) Checklist
+
+- [x] **Flyway Migration & Isolated Schema:** `V1__init_settlement.sql` establishing tables: `batches`, `settlement_records`, `settlement_payouts`, `provider_settlement_files`, `provider_lines`, `bank_deposits`, `simulation_manifests`, `reconciliation_runs`, `reconciliation_matches`, `cases`, `case_notes`, `adjustments`, `processed_events`.
+- [x] **Settlement Candidates & Re-Delivery Safety (10.1):**
+  - Deduplicated candidate ingestion using `processed_events` table inside transaction boundary.
+  - Re-delivery safety verified: identical event IDs produce zero duplicate candidate rows.
+  - Dual Kafka domain event listener + direct REST ingestion endpoint (`POST /v1/candidates`).
+- [x] **Batches & Payouts Lifecycle (F-S-01):**
+  - Atomic cutoff execution via `BatchCutoffService` linking pending records where `occurred_at <= cutoffTime`.
+  - Batch totals aggregation (`totalCount`, `totalGrossPaise`, `totalFeePaise`, `totalNetPaise`).
+  - Deterministic payout generation per seller (`batchId:sellerId`) with configurable threshold.
+  - Safe re-run behavior verified: empty pending records close cleanly with zero spurious payouts.
+- [x] **Streaming File Parser with Bounded Memory (10.3):**
+  - Line-by-line streaming CSV parsing using Apache Commons CSV (memory footprint bounded $O(1)$).
+  - SHA-256 file fingerprinting preventing duplicate uploads (`409 FileAlreadyIngestedException`).
+  - Full trailer row validation (`TRAILER,count,total_amount`); checksum mismatches cleanly rejected (`422 FileIntegrityException`).
+- [x] **Bank/Provider Simulator (10.3):**
+  - Configurable deterministic fault injection with random seeds: missing provider lines (0.5%), ghost lines (0.2%), duplicate lines (0.3%), gross mismatches (0.5%), fee variances (1.0%), and settlement timing delays (1.0%).
+  - Ground-truth tracking: every injected discrepancy is logged to `simulation_manifests` for exact precision/recall measurement.
+- [x] **Automated Verification:** 8/8 tests passing in `settlement-service` (62/62 total tests passing across reactor with 100% green status).
+- [x] **Spotless Check:** `mvn spotless:check` passing across all 5 reactor modules.
 
 ---
 

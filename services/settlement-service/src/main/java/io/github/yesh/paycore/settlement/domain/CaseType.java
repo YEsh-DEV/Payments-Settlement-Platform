@@ -1,0 +1,13 @@
+package io.github.yesh.paycore.settlement.domain;
+
+public enum CaseType {
+  AMOUNT_MISMATCH,
+  FEE_VARIANCE,
+  FEE_MISMATCH,
+  DUPLICATE_PROVIDER_LINE,
+  MISSING_IN_PROVIDER,
+  MISSING_IN_LEDGER,
+  MISSING_INTERNAL,
+  MISSING_PROVIDER,
+  DEPOSIT_UNMATCHED
+}
