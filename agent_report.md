@@ -33,11 +33,37 @@
 | **P2** | Ledger Service MVP | **COMPLETE** | Double-entry posting engine, Invariants I1-I8, Idempotency | `a5fc42b` |
 | **P3** | Hot-Account Study & Crash Harness | **COMPLETE** | Strategies S0/S1/S2/S4, benchmarks, SIGKILL harness | `0e126ce` |
 | **P4** | Holds & Payouts | **COMPLETE** | Holds auto-release, Payout states, Adjustments | `0162df6` |
-| **P5** | Settlement Core & Simulator | **COMPLETE** | Cutoff batches, streaming file ingestion, provider sim | `feat(p5)` |
-| **P6** | Reconciliation Engine | **IN PROGRESS** | 4-Stage Reconciliation Engine, match rules, case creation | TBD |
-| **P7** | Cases & Maker-Checker | QUEUED | Pending P6 | TBD |
+| **P5** | Settlement Core & Simulator | **COMPLETE** | Cutoff batches, streaming file ingestion, provider sim | `ce162b5` |
+| **P6** | Reconciliation Engine | **COMPLETE** | 4-Stage Reconciliation Engine, Subset Sum DP, ground truth | `feat(p6)` |
+| **P7** | Cases & Maker-Checker | **IN PROGRESS** | Case lifecycle, SLA escalation, maker-checker adjustments | TBD |
 | **P8** | Ops Console (React 19) | QUEUED | Pending P7 | TBD |
 | **P9** | Hardening & Observability | QUEUED | Pending P8 | TBD |
+
+---
+
+## Phase 6: Definition of Done (DoD) Checklist
+
+- [x] **Stage 1 (Exact Line Matching & Deterministic Variance):**
+  - Join on `provider_txn_id` with chunked hash matching.
+  - Match classification: `MATCHED_EXACT` (100% confidence, identical gross amount).
+  - Variance detection: `AMOUNT_MISMATCH` and `STAGE_1_FEE_VARIANCE` with configurable tolerance ($1$ paisa).
+  - Duplicate detection: `DUPLICATE_PROVIDER_LINE` flagged with HIGH severity.
+  - Residual tracking: `MISSING_IN_PROVIDER` and `MISSING_IN_LEDGER` automatically captured into cases.
+- [x] **Stage 2 (Fuzzy Reference & Time Window Fallback):**
+  - Fallback rule 1: Exact amount matching against order ID or payment ID via `merchant_ref` (95% confidence).
+  - Fallback rule 2: Equal amount + transaction time window within $\pm 10$ minutes with strictly UNIQUE candidate match (85% confidence; ambiguous matches never guessed).
+- [x] **Stage 3 (Batch to Deposit Reconciliation & Subset Sum):**
+  - Match rule 1: Exact $1 \to 1$ match between bank deposit amount and batch net total.
+  - Match rule 2: Reference hint extraction linking batch IDs from deposit text.
+  - Match rule 3: `SubsetSumSolver` using bounded branch-and-bound / meet-in-the-middle ($N \le 40$ batches, 5-second timeout, 100,000 state cap); ambiguous multi-subset collisions flagged for human review.
+  - Unmatched deposits automatically escalated as `DEPOSIT_UNMATCHED` (severity HIGH).
+- [x] **Stage 4 (Ledger Clearing Integration):**
+  - Automatic reconciliation state transitions for matched batches (`RECONCILED`), candidate records (`MATCHED`), and deposits (`MATCHED`).
+- [x] **Ground Truth Accuracy & Metrics:**
+  - Automated evaluation comparing reconciliation run outcomes against seeded faults from `simulation_manifests`.
+  - Calculated precision and recall metrics recorded directly on `reconciliation_runs`.
+- [x] **Automated Verification:** 15/15 tests passing in `settlement-service` (69/69 total tests passing across reactor with 100% green status).
+- [x] **Spotless Check:** `mvn spotless:check` passing across all reactor modules.
 
 ---
 

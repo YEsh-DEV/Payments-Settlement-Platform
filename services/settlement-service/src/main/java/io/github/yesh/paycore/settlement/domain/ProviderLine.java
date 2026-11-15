@@ -101,6 +101,10 @@ public class ProviderLine {
     return id;
   }
 
+  public void setId(Long id) {
+    this.id = id;
+  }
+
   public UUID getFileId() {
     return fileId;
   }
