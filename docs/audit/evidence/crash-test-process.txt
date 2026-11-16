@@ -1,0 +1,20 @@
+PayCore Real Process Crash Test Provenance
+=========================================
+Execution Timestamp: 2026-11-16T13:29:47.280640+00:00
+Git Commit SHA: 9be28521e91f49af4d32119ff6661f0ede9ada1a
+Target Jar: services/ledger-service/target/ledger-service-1.0.0-SNAPSHOT.jar
+Jar SHA-256: 8512522228ec93e3fcdc895588afdab9c751ebf26a08d8b366d077f1f085dc60
+Target Runtime: OpenJDK 21 (JVM)
+PostgreSQL Version: PostgreSQL 16.6 on x86_64-conda-linux-gnu, compiled by x86_64-conda-linux-gnu-cc (conda-forge gcc 13.3.0-1) 13.3.0, 64-bit
+PostgreSQL URL: jdbc:postgresql://localhost:5432/ledger
+Ledger Service Port: 8082
+Actuator Port: 9082
+Host Process ID (JVM PID): 329503
+Subprocess Executable: java -jar
+Captured Command Line (/proc/329503/cmdline):
+/home/yesh/.local/share/mise/installs/java/21/bin/java -jar /mnt/nexus/paycore/services/ledger-service/target/ledger-service-1.0.0-SNAPSHOT.jar
+
+Test Harness Architecture:
+- Real JVM process spawned via subprocess.Popen(['java', '-jar', ...])
+- Kernel termination: os.kill(pid, signal.SIGKILL) (exit status -9 / 137)
+- Zero mock processes, zero in-process Python servers

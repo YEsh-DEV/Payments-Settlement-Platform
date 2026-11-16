@@ -42,12 +42,23 @@ public class PayoutService {
   }
 
   public PayoutResponse initiatePayout(InitiatePayoutRequest request, String idempotencyKey) {
+    String scope = idempotencyService.resolveCurrentScope();
     return idempotencyService.execute(
-        idempotencyKey, request, () -> doInitiate(request, idempotencyKey), PayoutResponse.class);
+        scope,
+        idempotencyKey,
+        request,
+        () -> doInitiate(request, idempotencyKey, scope),
+        PayoutResponse.class);
   }
 
   @Transactional
   public PayoutResponse doInitiate(InitiatePayoutRequest request, String idempotencyKey) {
+    return doInitiate(request, idempotencyKey, "global");
+  }
+
+  @Transactional
+  public PayoutResponse doInitiate(
+      InitiatePayoutRequest request, String idempotencyKey, String scope) {
     Optional<Payout> existing = payoutRepository.findByPayoutId(request.payoutId());
     if (existing.isPresent()) {
       return toResponse(existing.get());
@@ -102,6 +113,7 @@ public class PayoutService {
     String jrnKey = idempotencyKey != null ? idempotencyKey : "payout_init_" + request.payoutId();
     JournalRequest journalRequest =
         new JournalRequest(
+            scope,
             jrnKey,
             request.payoutId(),
             JournalType.PAYOUT,
@@ -120,7 +132,14 @@ public class PayoutService {
             postingResult.journal().getId());
 
     Payout saved = payoutRepository.save(payout);
-    return toResponse(saved);
+    PayoutResponse response = toResponse(saved);
+
+    if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+      idempotencyService.completeKey(
+          scope, idempotencyKey, idempotencyService.serialize(response), 201);
+    }
+
+    return response;
   }
 
   @Transactional

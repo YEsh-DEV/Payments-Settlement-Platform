@@ -22,28 +22,51 @@ public class IdempotencyRecord {
   @JdbcTypeCode(SqlTypes.JSON)
   private String responseBody;
 
+  @Column(name = "response_status_code")
+  private Integer responseStatusCode = 201;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt = Instant.now();
 
   public IdempotencyRecord() {}
 
   public IdempotencyRecord(
-      IdempotencyKeyId id, String requestHash, IdempotencyStatus status, String responseBody) {
+      IdempotencyKeyId id,
+      String requestHash,
+      IdempotencyStatus status,
+      String responseBody,
+      Integer responseStatusCode) {
     this.id = id;
     this.requestHash = requestHash;
     this.status = status;
     this.responseBody = responseBody;
+    this.responseStatusCode = responseStatusCode != null ? responseStatusCode : 201;
     this.createdAt = Instant.now();
   }
 
   public IdempotencyRecord(
+      IdempotencyKeyId id, String requestHash, IdempotencyStatus status, String responseBody) {
+    this(id, requestHash, status, responseBody, 201);
+  }
+
+  public IdempotencyRecord(
+      String scope,
+      String key,
+      String requestHash,
+      IdempotencyStatus status,
+      String responseBody,
+      Integer responseStatusCode) {
+    this(new IdempotencyKeyId(scope, key), requestHash, status, responseBody, responseStatusCode);
+  }
+
+  public IdempotencyRecord(
       String scope, String key, String requestHash, IdempotencyStatus status, String responseBody) {
-    this(new IdempotencyKeyId(scope, key), requestHash, status, responseBody);
+    this(new IdempotencyKeyId(scope, key), requestHash, status, responseBody, 201);
   }
 
   public IdempotencyRecord(
       String key, String requestHash, IdempotencyStatus status, String responseBody) {
-    this("global", key, requestHash, status, responseBody);
+    this("global", key, requestHash, status, responseBody, 201);
   }
 
   public IdempotencyKeyId getId() {
@@ -76,6 +99,14 @@ public class IdempotencyRecord {
 
   public void setResponseBody(String responseBody) {
     this.responseBody = responseBody;
+  }
+
+  public Integer getResponseStatusCode() {
+    return responseStatusCode;
+  }
+
+  public void setResponseStatusCode(Integer responseStatusCode) {
+    this.responseStatusCode = responseStatusCode;
   }
 
   public Instant getCreatedAt() {

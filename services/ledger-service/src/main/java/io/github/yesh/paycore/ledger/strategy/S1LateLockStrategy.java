@@ -53,8 +53,11 @@ public class S1LateLockStrategy implements PostingStrategy {
   @Override
   @Transactional(isolation = Isolation.READ_COMMITTED)
   public PostingResult post(JournalRequest request) {
-    // Idempotency check
-    Optional<Journal> existing = journalRepository.findByIdempotencyKey(request.idempotencyKey());
+    // Scoped Idempotency check
+    String scope =
+        request.scope() != null && !request.scope().isBlank() ? request.scope() : "global";
+    Optional<Journal> existing =
+        journalRepository.findByScopeAndIdempotencyKey(scope, request.idempotencyKey());
     if (existing.isPresent()) {
       return new PostingResult(
           existing.get(), ledgerEntryRepository.findByJournalId(existing.get().getId()));

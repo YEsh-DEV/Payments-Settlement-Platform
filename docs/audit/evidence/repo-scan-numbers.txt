@@ -1,0 +1,15 @@
+=== Scan for Stale / Fabricated Benchmark & Crash Numbers ===
+Scan date: Mon Nov 16 01:31:27 PM UTC 2026
+Patterns scanned: 3420, 2890, 1020, 3906, 3980, 85.63, 67.92
+
+1. Scanning README.md:
+CLEAN: Zero stale numbers found in README.md
+
+2. Scanning web/ops-console/src:
+CLEAN: Zero stale numbers found in web/ops-console/src
+
+3. Scanning services/ (source code):
+CLEAN: Zero stale numbers found in services/ source code
+
+4. Scanning docs/runbook.md and docs/hot-account-report.md:
+CLEAN: Zero stale numbers found in runbook or hot-account-report

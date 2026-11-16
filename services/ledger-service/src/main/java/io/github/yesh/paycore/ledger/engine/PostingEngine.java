@@ -92,8 +92,11 @@ public class PostingEngine {
   }
 
   private PostingResult executePost(JournalRequest request) {
-    // Invariant I6: Idempotent Execution
-    Optional<Journal> existing = journalRepository.findByIdempotencyKey(request.idempotencyKey());
+    // Invariant I6: Scoped Idempotent Execution
+    String scope =
+        request.scope() != null && !request.scope().isBlank() ? request.scope() : "global";
+    Optional<Journal> existing =
+        journalRepository.findByScopeAndIdempotencyKey(scope, request.idempotencyKey());
     if (existing.isPresent()) {
       List<LedgerEntry> entries = ledgerEntryRepository.findByJournalId(existing.get().getId());
       return new PostingResult(existing.get(), entries);

@@ -80,7 +80,8 @@ class HotAccountStrategiesTest {
     Account hot = new Account("USER_FUNDS", AccountType.ASSET, true, 10);
     hot.setId(hotId);
 
-    when(journalRepository.findByIdempotencyKey("idemp_s1")).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_s1")))
+        .thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(nonHot, hot));
     when(accountRepository.findByIdForUpdate(nonHotId)).thenReturn(Optional.of(nonHot));
     when(accountRepository.findByIdForUpdate(hotId)).thenReturn(Optional.of(hot));
@@ -111,7 +112,8 @@ class HotAccountStrategiesTest {
     Account hot = new Account("HOT_STRIPED", AccountType.ASSET, true, 10);
     hot.setId(hotId);
 
-    when(journalRepository.findByIdempotencyKey("idemp_s2")).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_s2")))
+        .thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(nonHot, hot));
     when(accountRepository.findByIdForUpdate(nonHotId)).thenReturn(Optional.of(nonHot));
     when(accountStripeRepository.findStripeForUpdate(eq(hotId), anyInt()))
@@ -148,7 +150,8 @@ class HotAccountStrategiesTest {
     hot.setId(hotId);
     hot.setBalancePaise(100000L);
 
-    when(journalRepository.findByIdempotencyKey("idemp_s4")).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_s4")))
+        .thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(nonHot, hot));
     when(accountRepository.findByIdForUpdate(nonHotId)).thenReturn(Optional.of(nonHot));
     when(journalRepository.save(any(Journal.class))).thenAnswer(inv -> inv.getArgument(0));

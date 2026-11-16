@@ -3,6 +3,7 @@ package io.github.yesh.paycore.ledger.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -67,7 +68,8 @@ class PostingEngineTest {
     fee.setId(feeId);
     fee.setBalancePaise(0L);
 
-    when(journalRepository.findByIdempotencyKey("idemp_100")).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_100")))
+        .thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(userFunds, merchant, fee));
     when(accountRepository.findByIdForUpdate(userFundsId)).thenReturn(Optional.of(userFunds));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
@@ -161,7 +163,7 @@ class PostingEngineTest {
     payoutTransit.setId(payoutTransitId);
     payoutTransit.setBalancePaise(0L);
 
-    when(journalRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), any())).thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, payoutTransit));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
     when(accountRepository.findByIdForUpdate(payoutTransitId))
@@ -202,7 +204,8 @@ class PostingEngineTest {
     providerReceivable.setId(providerReceivableId);
     providerReceivable.setBalancePaise(10000L);
 
-    when(journalRepository.findByIdempotencyKey("idemp_ref_neg")).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_ref_neg")))
+        .thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, providerReceivable));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
     when(accountRepository.findByIdForUpdate(providerReceivableId))
@@ -248,7 +251,8 @@ class PostingEngineTest {
     LedgerEntry entry1 =
         new LedgerEntry(existing.getId(), UUID.randomUUID(), EntryDirection.DR, 5000, 5000);
 
-    when(journalRepository.findByIdempotencyKey("idemp_replay")).thenReturn(Optional.of(existing));
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_replay")))
+        .thenReturn(Optional.of(existing));
     when(ledgerEntryRepository.findByJournalId(existing.getId())).thenReturn(List.of(entry1));
 
     JournalRequest request =
@@ -286,7 +290,8 @@ class PostingEngineTest {
     Account nh2 = new Account("NH_2", AccountType.ASSET, false, 1);
     nh2.setId(nonHot2);
 
-    when(journalRepository.findByIdempotencyKey("idemp_lock_order")).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_lock_order")))
+        .thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(h2, nh2, h1, nh1));
     when(accountRepository.findByIdForUpdate(any()))
         .thenAnswer(

@@ -17,10 +17,10 @@ export function SystemPage() {
   ];
 
   const strategies = [
-    { code: 'S0_PESSIMISTIC', name: 'Pessimistic Locking', baselineTps: '990 req/s', desc: 'Strict serializability with fixed global lock order (W2 peak)', active: false },
-    { code: 'S1_LATE_LOCK', name: 'Late-Acquire Lock', baselineTps: '2,130 req/s', desc: 'Defers hot account row lock to commit window (W2 peak)', active: false },
-    { code: 'S2_STRIPED', name: 'Striped Accounts', baselineTps: '3,906 req/s', desc: 'Default production strategy: partitions hot accounts across N=16 stripes (W2 peak, 0.0% aborts)', active: true },
-    { code: 'S4_LEDGER_ONLY', name: 'Event-Sourced Append', baselineTps: '3,731 req/s', desc: 'Append-only ledger entries with zero hot balance mutations on write path (W2 peak)', active: false },
+    { code: 'S0_PESSIMISTIC', name: 'Pessimistic Locking', profile: 'Row-Lock', desc: 'Strict serializability with deterministic global lock order', active: false },
+    { code: 'S1_LATE_LOCK', name: 'Late-Acquire Lock', profile: 'Deferred-Lock', desc: 'Defers hot account row lock to transaction commit window', active: false },
+    { code: 'S2_STRIPED', name: 'Striped Accounts', profile: '16 Stripes', desc: 'Default production strategy: partitions hot accounts across N=16 stripes', active: true },
+    { code: 'S4_LEDGER_ONLY', name: 'Event-Sourced Append', profile: 'Append-Only', desc: 'Append-only ledger entries with asynchronous balance snapshotting', active: false },
   ];
 
   return (
@@ -49,7 +49,7 @@ export function SystemPage() {
             </div>
           </div>
           <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white">
-            WAL Verified
+            SIGKILL Verified
           </span>
         </div>
       </div>
@@ -88,7 +88,7 @@ export function SystemPage() {
           Pluggable Hot-Account Strategies
         </h3>
         <p className="text-xs text-slate-500 mb-4">
-          Measured benchmarks from <span className="font-mono font-semibold">docs/hot-account-report.md</span>
+          Architectural strategies from <span className="font-mono font-semibold">docs/hot-account-report.md</span>
         </p>
 
         <div className="space-y-3">
@@ -114,8 +114,9 @@ export function SystemPage() {
                 <p className="text-xs text-slate-500 mt-1">{st.desc}</p>
               </div>
               <div className="text-right">
-                <span className="text-sm font-bold text-slate-900">{st.baselineTps}</span>
-                <p className="text-[10px] text-slate-400">Extreme Hot-spot (W3)</p>
+                <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                  {st.profile}
+                </span>
               </div>
             </div>
           ))}

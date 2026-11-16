@@ -6,7 +6,7 @@
 [![React 19](https://img.shields.io/badge/React-19%20%2B%20Vite-blueviolet.svg)](https://react.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**PayCore** is a double-entry financial ledger, automated multi-stage settlement, and reconciliation platform built for multi-sided marketplaces. It provides mathematical accounting guarantees (Invariants I1 to I8), four hot-account concurrency strategies sustaining up to **3,906 req/s** on mixed workloads, automated bank/provider clearing with dynamic programming subset-sum solving, and dual-control maker-checker dispute resolution.
+**PayCore** is a double-entry financial ledger, automated multi-stage settlement, and reconciliation platform built for multi-sided marketplaces. It provides mathematical accounting guarantees (Invariants I1 to I8), four hot-account concurrency strategies (S0 Pessimistic, S1 Late-Lock, S2 Striped with N=16 stripes, S4 Ledger-Only), automated bank/provider clearing with dynamic programming subset-sum solving, and dual-control maker-checker dispute resolution.
 
 ---
 
@@ -49,37 +49,28 @@ PayCore provides mathematical and architectural invariants verified by property-
 
 ---
 
-## Hot-Account Concurrency Benchmark Summary
+## Hot-Account Concurrency Architecture
 
-When high-volume marketplaces process transactions, central platform accounts (`PROVIDER_RECEIVABLE` and `PLATFORM_FEE_REVENUE`) suffer severe write contention. PayCore implements and benchmarks four concurrency strategies per Playbook Section 9:
+When high-volume marketplaces process transactions, central platform accounts (`PROVIDER_RECEIVABLE` and `PLATFORM_FEE_REVENUE`) suffer write contention. PayCore implements four concurrency strategies per Playbook Section 9:
 
-| Strategy | Description | W1 Captures (Peak) | W2 Mixed (Peak) | W3 Pareto (Peak) | Abort Rate (c=128) |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **S0: Pessimistic Lock** | Full-transaction row lock via ascending UUID order. | 922.6 req/s | 990.5 req/s | 1,037.8 req/s | 0.0% |
-| **S1: Late-Lock** | Row lock deferred to commit window. | 1,965.1 req/s | 2,129.9 req/s | 2,221.2 req/s | 5.51% (serialization conflicts) |
-| **S2: Striped Accounts** | Hot account balance partitioned across $N=16$ stripes. | **3,816.4 req/s** | **3,905.6 req/s** | **3,899.7 req/s** | **0.0%** |
-| **S4: Ledger-Only** | Append-only event sourcing with async snapshots. | 3,791.6 req/s | 3,731.3 req/s | 3,755.5 req/s | 0.0% |
+- **S0 (Pessimistic):** Full-transaction row lock via deterministic account order (`SELECT ... FOR UPDATE`).
+- **S1 (Late-Lock):** Row lock deferred to the commit window to reduce lock hold times.
+- **S2 (Striped Accounts):** Hot account balance partitioned across $N=16$ balance stripes (`account_stripes`). Writes pick stripes randomly; balance queries aggregate stripes.
+- **S4 (Ledger-Only):** Append-only event sourcing with asynchronous snapshot aggregation and zero hot balance mutation on write path.
 
-*Measurements taken on Linux 7.2.15-omarchy-x86_64 across 240 benchmark executions. Selection by Decision Rule: `S2_STRIPED` (highest sustained throughput with p99 < 12 ms, zero aborts, and live balance). Detailed report in [docs/benchmark-report.md](docs/benchmark-report.md).*
+*Strategy selection is statically configured at startup via `paycore.ledger.strategy`. Benchmark methodology and execution protocol are documented in [docs/benchmark-report.md](docs/benchmark-report.md) and [docs/hot-account-report.md](docs/hot-account-report.md).*
 
 ---
 
-## Crash Recovery Verification (50-Iteration Real Process SIGKILL Harness)
+## Crash Recovery Verification
 
-To guarantee ACID durability against sudden process termination, PayCore includes an automated 50-iteration crash harness ([scripts/crash-test](scripts/crash-test)):
+To verify crash recovery against process termination, PayCore includes an automated crash harness ([scripts/crash-test](scripts/crash-test)):
+- Sends mixed Workload W2 traffic over HTTP to the running ledger service.
+- Sends a real OS kernel `SIGKILL` (signal 9) to the service process mid-transaction.
+- Restarts the service, replays in-flight and succeeded requests with original `Idempotency-Key` headers.
+- Asserts zero double-spend, zero duplicate journals, zero unbalanced transactions, and outbox integrity directly in PostgreSQL.
 
-```bash
-# Results over 50 real process SIGKILL termination cycles during live W2 mixed transactions:
-Iteration 50/50: PASSED (Recovery time: 59.93 ms, Invariants: PASS)
-================================================================================
-Crash Verification Summary:
-Total cycles executed: 50
-Total cycles passed:   50 (100.0%)
-Data integrity violations (I1 to I8): 0
-Average recovery time: 67.21 ms (median 67.92 ms, p95 74.67 ms)
-================================================================================
-```
-*Empirical results and per-iteration recovery distribution recorded in [docs/crash-test-report.md](docs/crash-test-report.md).*
+*Test protocol, methodology, and empirical execution results are documented in [docs/crash-test-report.md](docs/crash-test-report.md).*
 
 ---
 
@@ -158,11 +149,11 @@ paycore/
 │   └── settlement-service/     # Cutoff batching, streaming file parser, recon engine, maker-checker
 ├── web/
 │   └── ops-console/            # React 19 + TypeScript + Tailwind Ops Console
-├── benchmarks/
+├── perf/
 │   ├── k6/                     # Parameterized load tests (W1 uniform, W2 Pareto, W3 hot-spot)
-│   └── runner.sh               # Automated benchmark execution script
-├── tests/
-│   └── crash-harness/          # 50-cycle SIGKILL crash test harness
+│   └── run-benchmark.py        # Benchmark driver script
+├── scripts/
+│   └── crash-test              # Real-process 50-cycle JVM & 20-cycle PG SIGKILL crash test harness
 ├── deploy/                     # Docker compose, PostgreSQL init scripts, Nginx gateway
 └── docs/
     ├── runbook.md              # Operational SOPs and SQL invariant audit scripts

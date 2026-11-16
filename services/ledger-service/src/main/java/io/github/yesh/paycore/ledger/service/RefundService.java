@@ -43,12 +43,22 @@ public class RefundService {
   }
 
   public RefundResponse processRefund(RefundRequest request, String idempotencyKey) {
+    String scope = idempotencyService.resolveCurrentScope();
     return idempotencyService.execute(
-        idempotencyKey, request, () -> doRefund(request, idempotencyKey), RefundResponse.class);
+        scope,
+        idempotencyKey,
+        request,
+        () -> doRefund(request, idempotencyKey, scope),
+        RefundResponse.class);
   }
 
   @Transactional
   public RefundResponse doRefund(RefundRequest request, String idempotencyKey) {
+    return doRefund(request, idempotencyKey, "global");
+  }
+
+  @Transactional
+  public RefundResponse doRefund(RefundRequest request, String idempotencyKey, String scope) {
     Optional<Refund> existing = refundRepository.findByRefundId(request.refundId());
     if (existing.isPresent()) {
       Refund r = existing.get();
@@ -148,6 +158,7 @@ public class RefundService {
     String journalKey = idempotencyKey != null ? idempotencyKey : "ref_jrn_" + request.refundId();
     JournalRequest journalRequest =
         new JournalRequest(
+            scope,
             journalKey,
             request.refundId(),
             JournalType.REFUND,
@@ -176,13 +187,21 @@ public class RefundService {
     }
     paymentRepository.save(payment);
 
-    return new RefundResponse(
-        savedRefund.getId(),
-        savedRefund.getRefundId(),
-        savedRefund.getPaymentId(),
-        savedRefund.getAmountPaise(),
-        savedRefund.getStatus().name(),
-        savedRefund.getJournalId(),
-        savedRefund.getCreatedAt());
+    RefundResponse response =
+        new RefundResponse(
+            savedRefund.getId(),
+            savedRefund.getRefundId(),
+            savedRefund.getPaymentId(),
+            savedRefund.getAmountPaise(),
+            savedRefund.getStatus().name(),
+            savedRefund.getJournalId(),
+            savedRefund.getCreatedAt());
+
+    if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+      idempotencyService.completeKey(
+          scope, idempotencyKey, idempotencyService.serialize(response), 201);
+    }
+
+    return response;
   }
 }

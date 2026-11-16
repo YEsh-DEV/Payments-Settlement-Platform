@@ -3,6 +3,7 @@ package io.github.yesh.paycore.ledger.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -111,7 +112,8 @@ class InvariantSuiteTest {
     Account fee = new Account("PLATFORM_FEE_REVENUE", AccountType.REVENUE, true, 16);
     fee.setId(feeId);
 
-    when(journalRepository.findByIdempotencyKey("idemp_i1_" + type)).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_i1_" + type)))
+        .thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(provider, merchant, fee));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
     if (type == StrategyType.S0_PESSIMISTIC || type == StrategyType.S1_LATE_LOCK) {
@@ -206,7 +208,8 @@ class InvariantSuiteTest {
     provider.setId(providerId);
     provider.setBalancePaise(50000L);
 
-    when(journalRepository.findByIdempotencyKey("idemp_neg_" + type)).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_neg_" + type)))
+        .thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, provider));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
     if (type == StrategyType.S0_PESSIMISTIC || type == StrategyType.S1_LATE_LOCK) {
@@ -264,7 +267,8 @@ class InvariantSuiteTest {
     Account payoutTransit = new Account("PAYOUT_IN_TRANSIT", AccountType.LIABILITY, false, 1);
     payoutTransit.setId(payoutTransitId);
 
-    when(journalRepository.findByIdempotencyKey("idemp_payout_bad")).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_payout_bad")))
+        .thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, payoutTransit));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
     when(accountRepository.findByIdForUpdate(payoutTransitId))
@@ -295,7 +299,7 @@ class InvariantSuiteTest {
         new LedgerEntry(
             existingJournal.getId(), UUID.randomUUID(), EntryDirection.DR, 5000L, 5000L);
 
-    when(journalRepository.findByIdempotencyKey("idemp_unique_key"))
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), eq("idemp_unique_key")))
         .thenReturn(Optional.of(existingJournal));
     when(ledgerEntryRepository.findByJournalId(existingJournal.getId())).thenReturn(List.of(entry));
 
@@ -389,7 +393,7 @@ class InvariantSuiteTest {
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
     when(accountRepository.findByIdForUpdate(providerId)).thenReturn(Optional.of(provider));
     when(accountRepository.findByIdForUpdate(feeId)).thenReturn(Optional.of(fee));
-    when(journalRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
+    when(journalRepository.findByScopeAndIdempotencyKey(any(), any())).thenReturn(Optional.empty());
     when(journalRepository.save(any(Journal.class)))
         .thenAnswer(
             inv -> {

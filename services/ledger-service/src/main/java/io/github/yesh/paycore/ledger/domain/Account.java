@@ -43,6 +43,10 @@ public class Account {
 
   public Account() {}
 
+  public Account(String code, AccountType type) {
+    this(code, type, false, 1);
+  }
+
   public Account(String code, AccountType type, boolean isHot, int stripeCount) {
     this.code = code;
     this.type = type;

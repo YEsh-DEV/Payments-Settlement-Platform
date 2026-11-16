@@ -45,9 +45,17 @@ public class IdempotencyService {
   private final IdempotencyRecordRepository repository;
   private final ObjectMapper objectMapper;
 
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  @org.springframework.context.annotation.Lazy
+  private IdempotencyService self;
+
   public IdempotencyService(IdempotencyRecordRepository repository, ObjectMapper objectMapper) {
     this.repository = repository;
     this.objectMapper = objectMapper;
+  }
+
+  private IdempotencyService getSelf() {
+    return self != null ? self : this;
   }
 
   public <T> T execute(
@@ -88,7 +96,7 @@ public class IdempotencyService {
               key,
               resolvedScope,
               record.getCreatedAt());
-          takeOverStaleKey(resolvedScope, key, requestHash);
+          getSelf().takeOverStaleKey(resolvedScope, key, requestHash);
         } else {
           throw new PayCoreException(
               HttpStatus.CONFLICT,
@@ -100,16 +108,16 @@ public class IdempotencyService {
             "Retrying previously interrupted or failed idempotency key {} (scoped: {})",
             key,
             resolvedScope);
-        takeOverStaleKey(resolvedScope, key, requestHash);
+        getSelf().takeOverStaleKey(resolvedScope, key, requestHash);
       } else if (record.getStatus() == IdempotencyStatus.COMPLETED
           && record.getResponseBody() != null) {
-        markReplayedHeader();
+        markReplayedHeader(record.getResponseStatusCode());
         return deserialize(record.getResponseBody(), responseClass);
       }
     } else {
       // 2. Claim key as IN_FLIGHT
       try {
-        claimKey(resolvedScope, key, requestHash);
+        getSelf().claimKey(resolvedScope, key, requestHash);
       } catch (DataIntegrityViolationException ex) {
         // Concurrent race condition handling
         Optional<IdempotencyRecord> concurrent = repository.findByScopeAndKey(resolvedScope, key);
@@ -128,7 +136,7 @@ public class IdempotencyService {
                 "A request with this idempotency key is currently processing");
           }
           if (rec.getStatus() == IdempotencyStatus.COMPLETED && rec.getResponseBody() != null) {
-            markReplayedHeader();
+            markReplayedHeader(rec.getResponseStatusCode());
             return deserialize(rec.getResponseBody(), responseClass);
           }
         }
@@ -139,11 +147,14 @@ public class IdempotencyService {
     // 3. Execute downstream business logic
     try {
       T result = action.get();
-      String responseJson = serialize(result);
-      completeKey(resolvedScope, key, responseJson);
+      Optional<IdempotencyRecord> current = repository.findByScopeAndKey(resolvedScope, key);
+      if (current.isPresent() && current.get().getStatus() == IdempotencyStatus.IN_FLIGHT) {
+        String responseJson = serialize(result);
+        getSelf().completeKey(resolvedScope, key, responseJson, 201);
+      }
       return result;
     } catch (Exception ex) {
-      failKey(resolvedScope, key);
+      getSelf().failKey(resolvedScope, key);
       throw ex;
     }
   }
@@ -169,15 +180,21 @@ public class IdempotencyService {
   }
 
   @Transactional(propagation = Propagation.REQUIRED)
-  public void completeKey(String scope, String key, String responseJson) {
+  public void completeKey(String scope, String key, String responseJson, int statusCode) {
     repository
         .findByScopeAndKey(scope, key)
         .ifPresent(
             record -> {
               record.setStatus(IdempotencyStatus.COMPLETED);
               record.setResponseBody(responseJson);
+              record.setResponseStatusCode(statusCode);
               repository.save(record);
             });
+  }
+
+  @Transactional(propagation = Propagation.REQUIRED)
+  public void completeKey(String scope, String key, String responseJson) {
+    completeKey(scope, key, responseJson, 201);
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -191,18 +208,14 @@ public class IdempotencyService {
             });
   }
 
-  @org.springframework.context.event.EventListener(
-      org.springframework.boot.context.event.ApplicationReadyEvent.class)
   @Transactional
   public int recoverOrphanedInFlightKeysOnStartup() {
-    Instant safetyCutoff = Instant.now().minus(5, ChronoUnit.SECONDS);
+    Instant cutoff = Instant.now().minusSeconds(STALE_IN_FLIGHT_TIMEOUT_SECONDS);
     int updated =
         repository.updateStatusByStatusAndCreatedAtBefore(
-            IdempotencyStatus.IN_FLIGHT, IdempotencyStatus.FAILED, safetyCutoff);
+            IdempotencyStatus.IN_FLIGHT, IdempotencyStatus.FAILED, cutoff);
     if (updated > 0) {
-      log.info(
-          "Crash recovery: reset {} orphaned IN_FLIGHT idempotency keys to FAILED for safe client replay",
-          updated);
+      log.info("Reset {} stale IN_FLIGHT idempotency keys (>60s) to FAILED", updated);
     }
     return updated;
   }
@@ -232,16 +245,23 @@ public class IdempotencyService {
     return "global";
   }
 
-  private void markReplayedHeader() {
+  private void markReplayedHeader(Integer statusCode) {
     try {
       ServletRequestAttributes attrs =
           (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
       if (attrs != null && attrs.getResponse() != null) {
         HttpServletResponse response = attrs.getResponse();
         response.setHeader(IDEMPOTENT_REPLAYED_HEADER, "true");
+        if (statusCode != null) {
+          response.setStatus(statusCode);
+        }
       }
     } catch (Exception ignored) {
     }
+  }
+
+  private void markReplayedHeader() {
+    markReplayedHeader(200);
   }
 
   public String hashPayload(String payload) {
@@ -260,7 +280,7 @@ public class IdempotencyService {
     }
   }
 
-  private String serialize(Object obj) {
+  public String serialize(Object obj) {
     try {
       return objectMapper.writeValueAsString(obj);
     } catch (JsonProcessingException e) {

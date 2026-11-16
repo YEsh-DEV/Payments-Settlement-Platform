@@ -54,7 +54,10 @@ public class S2StripedStrategy implements PostingStrategy {
   @Override
   @Transactional(isolation = Isolation.READ_COMMITTED)
   public PostingResult post(JournalRequest request) {
-    Optional<Journal> existing = journalRepository.findByIdempotencyKey(request.idempotencyKey());
+    String scope =
+        request.scope() != null && !request.scope().isBlank() ? request.scope() : "global";
+    Optional<Journal> existing =
+        journalRepository.findByScopeAndIdempotencyKey(scope, request.idempotencyKey());
     if (existing.isPresent()) {
       return new PostingResult(
           existing.get(), ledgerEntryRepository.findByJournalId(existing.get().getId()));

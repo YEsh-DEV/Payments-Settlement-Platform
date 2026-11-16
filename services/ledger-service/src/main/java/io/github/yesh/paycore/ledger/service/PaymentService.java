@@ -46,12 +46,23 @@ public class PaymentService {
   }
 
   public PaymentResponse capturePayment(CapturePaymentRequest request, String idempotencyKey) {
+    String scope = idempotencyService.resolveCurrentScope();
     return idempotencyService.execute(
-        idempotencyKey, request, () -> doCapture(request, idempotencyKey), PaymentResponse.class);
+        scope,
+        idempotencyKey,
+        request,
+        () -> doCapture(request, idempotencyKey, scope),
+        PaymentResponse.class);
   }
 
   @Transactional
   public PaymentResponse doCapture(CapturePaymentRequest request, String idempotencyKey) {
+    return doCapture(request, idempotencyKey, "global");
+  }
+
+  @Transactional
+  public PaymentResponse doCapture(
+      CapturePaymentRequest request, String idempotencyKey, String scope) {
     Optional<Payment> existing = paymentRepository.findByPaymentId(request.paymentId());
     if (existing.isPresent()) {
       Payment p = existing.get();
@@ -121,6 +132,7 @@ public class PaymentService {
     String journalKey = idempotencyKey != null ? idempotencyKey : "pay_jrn_" + request.paymentId();
     JournalRequest journalRequest =
         new JournalRequest(
+            scope,
             journalKey,
             request.paymentId(),
             JournalType.PAYMENT,
@@ -141,16 +153,24 @@ public class PaymentService {
 
     Payment saved = paymentRepository.save(payment);
 
-    return new PaymentResponse(
-        saved.getId(),
-        saved.getPaymentId(),
-        saved.getSellerId(),
-        saved.getGrossPaise(),
-        saved.getFeePaise(),
-        saved.getNetPaise(),
-        saved.getStatus().name(),
-        saved.getJournalId(),
-        saved.getCreatedAt());
+    PaymentResponse response =
+        new PaymentResponse(
+            saved.getId(),
+            saved.getPaymentId(),
+            saved.getSellerId(),
+            saved.getGrossPaise(),
+            saved.getFeePaise(),
+            saved.getNetPaise(),
+            saved.getStatus().name(),
+            saved.getJournalId(),
+            saved.getCreatedAt());
+
+    if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+      idempotencyService.completeKey(
+          scope, idempotencyKey, idempotencyService.serialize(response), 201);
+    }
+
+    return response;
   }
 
   @Transactional(readOnly = true)

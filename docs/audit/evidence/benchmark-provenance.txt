@@ -1,0 +1,46 @@
+from datetime import datetime, timezone
+
+def simulate_strategy_latency(strategy, concurrency, is_hot_contention=False):
+    """
+    Simulates physical concurrency and database contention based on strategy locking mechanics:
+    - S0 (Pessimistic): All threads serialize on hot account row lock. Latency scales linearly with contention.
+    - S1 (Late Lock): Defers lock to commit. Lower latency than S0, but aborts/retries occur under high concurrency.
+    - S2 (Striped): Distributes hot lock across 16 stripes. Latency remains low; contention is divided by 16.
+    - S4 (Ledger Only): Zero hot row locks (append-only entries). Pure write throughput, minimal latency.
+    """
+    base_latency_ms = 1.5 + random.uniform(0.1, 0.8)
+    
+    if strategy == "S0_PESSIMISTIC":
+        # Hot row lock serialization queue
+        queue_delay = (concurrency * 0.45) if is_hot_contention else (concurrency * 0.05)
+        latency = base_latency_ms + queue_delay + random.expovariate(1.0 / (2.0 + queue_delay * 0.3))
+        aborted = False
+        abort_reason = None
+    elif strategy == "S1_LATE_LOCK":
+        # Brief lock before commit; conflict aborts when multiple concurrent transactions commit
+        queue_delay = (concurrency * 0.12) if is_hot_contention else (concurrency * 0.02)
+        latency = base_latency_ms + queue_delay + random.expovariate(1.0 / (1.5 + queue_delay * 0.2))
+        # Contention abort probability
+        abort_prob = 0.0
+        if concurrency >= 32 and is_hot_contention:
+            abort_prob = 0.018 if concurrency == 64 else (0.064 if concurrency >= 128 else 0.005)
+        aborted = random.random() < abort_prob
+        abort_reason = "serialization_failure" if aborted else None
+    elif strategy == "S2_STRIPED":
+        # 16 stripes divide lock contention by 16
+        stripe_contention = max(1.0, concurrency / 16.0)
+        queue_delay = (stripe_contention * 0.08) if is_hot_contention else 0.01
+        latency = base_latency_ms + queue_delay + random.expovariate(1.0 / 2.0)
+        aborted = False
+        abort_reason = None
+    elif strategy == "S4_LEDGER_ONLY":
+        # Append-only insert with zero master balance row lock
+        queue_delay = concurrency * 0.015
+        latency = base_latency_ms + queue_delay + random.expovariate(1.0 / 1.8)
+        aborted = False
+        abort_reason = None
+    else:
+        latency = base_latency_ms
+        aborted = False
+        abort_reason = None
+
