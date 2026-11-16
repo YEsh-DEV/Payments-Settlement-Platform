@@ -13,7 +13,6 @@ import io.github.yesh.paycore.settlement.dto.ReconciliationRunResponse;
 import io.github.yesh.paycore.settlement.reconciliation.ReconciliationEngine;
 import io.github.yesh.paycore.settlement.repository.*;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -63,7 +62,8 @@ class ReconciliationStage4PostingTest {
   }
 
   @Test
-  @DisplayName("Stage 4: Matched deposit calls ledger POST /v1/provider-deposits with key deposit:<id>")
+  @DisplayName(
+      "Stage 4: Matched deposit calls ledger POST /v1/provider-deposits with key deposit:<id>")
   void testStage4MatchedDepositPostsToLedger() {
     String batchId = "BATCH_DEP_1";
     Batch batch = new Batch(batchId, "2026-11-16T00:00:00Z");
@@ -84,7 +84,8 @@ class ReconciliationStage4PostingTest {
     when(batchRepo.findByStatus(BatchStatus.COMPLETED)).thenReturn(List.of(batch));
     when(batchRepo.findByBatchId(batchId)).thenReturn(Optional.of(batch));
 
-    ReconciliationRunResponse response = engine.execute(new ReconciliationRunRequest(null, null, null, 200, 1L));
+    ReconciliationRunResponse response =
+        engine.execute(new ReconciliationRunRequest(null, null, null, 200, 1L));
 
     assertThat(deposit.getStatus()).isEqualTo("MATCHED");
     assertThat(batch.getStatus()).isEqualTo(BatchStatus.RECONCILED);
@@ -92,11 +93,7 @@ class ReconciliationStage4PostingTest {
     // Verify ledger client call
     verify(ledgerClient)
         .postProviderDeposit(
-            eq("DEP_101"),
-            eq(98000L),
-            eq(2000L),
-            eq("RAZORPAY_BATCH_DEP_1"),
-            any());
+            eq("DEP_101"), eq(98000L), eq(2000L), eq("RAZORPAY_BATCH_DEP_1"), any());
   }
 
   @Test
@@ -113,7 +110,8 @@ class ReconciliationStage4PostingTest {
     when(batchRepo.findAll()).thenReturn(List.of()); // No batches exist!
     when(batchRepo.findByStatus(BatchStatus.COMPLETED)).thenReturn(List.of());
 
-    ReconciliationRunResponse response = engine.execute(new ReconciliationRunRequest(null, null, null, 200, 1L));
+    ReconciliationRunResponse response =
+        engine.execute(new ReconciliationRunRequest(null, null, null, 200, 1L));
 
     assertThat(deposit.getStatus()).isEqualTo("UNMATCHED");
     verify(ledgerClient, never()).postProviderDeposit(any(), anyLong(), anyLong(), any(), any());

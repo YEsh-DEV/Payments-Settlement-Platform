@@ -42,6 +42,14 @@ public class StreamingFileParser {
     this.lineRepository = lineRepository;
   }
 
+  @Transactional(readOnly = true)
+  public org.springframework.data.domain.Page<FileUploadResponse> listFiles(
+      org.springframework.data.domain.Pageable pageable) {
+    return fileRepository
+        .findAllByOrderByIngestedAtDesc(pageable)
+        .map(FileUploadResponse::fromEntity);
+  }
+
   @Transactional
   public FileUploadResponse parseAndIngest(
       String filename, String provider, InputStream inputStream) {

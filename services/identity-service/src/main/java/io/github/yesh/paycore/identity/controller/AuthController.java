@@ -5,6 +5,7 @@ import io.github.yesh.paycore.identity.dto.*;
 import io.github.yesh.paycore.identity.security.JwtTokenService;
 import io.github.yesh.paycore.identity.security.RsaKeyProvider;
 import io.github.yesh.paycore.identity.service.AuthService;
+import io.github.yesh.paycore.identity.service.UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.time.Duration;
@@ -20,9 +21,13 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 public class AuthController {
 
+  private static final org.slf4j.Logger log =
+      org.slf4j.LoggerFactory.getLogger(AuthController.class);
+
   public static final String REFRESH_COOKIE_NAME = "paycore_refresh_token";
 
   private final AuthService authService;
+  private final UserService userService;
   private final RsaKeyProvider rsaKeyProvider;
   private final boolean cookieSecure;
   private final long refreshTokenValiditySeconds;
@@ -30,6 +35,7 @@ public class AuthController {
 
   public AuthController(
       AuthService authService,
+      UserService userService,
       RsaKeyProvider rsaKeyProvider,
       @Value("${paycore.security.cookie.secure:false}") boolean cookieSecure,
       @Value("${paycore.security.jwt.refresh-token-validity-seconds:604800}")
@@ -37,6 +43,7 @@ public class AuthController {
       @Value("${paycore.security.jwt.access-token-validity-seconds:900}")
           long accessTokenValiditySeconds) {
     this.authService = authService;
+    this.userService = userService;
     this.rsaKeyProvider = rsaKeyProvider;
     this.cookieSecure = cookieSecure;
     this.refreshTokenValiditySeconds = refreshTokenValiditySeconds;
@@ -90,7 +97,8 @@ public class AuthController {
         if (exp != null) {
           remaining = Duration.between(Instant.now(), exp.toInstant());
         }
-      } catch (Exception ignored) {
+      } catch (java.text.ParseException e) {
+        log.debug("Failed to parse Bearer token during logout: {}", e.getMessage());
       }
     }
 
@@ -107,6 +115,18 @@ public class AuthController {
     return ResponseEntity.ok(
         new ServiceTokenResponse(
             result.token(), Duration.between(Instant.now(), result.expiresAt()).toSeconds()));
+  }
+
+  @GetMapping("/auth/me")
+  public ResponseEntity<UserResponse> me(
+      org.springframework.security.core.Authentication authentication) {
+    if (authentication == null || authentication.getName() == null) {
+      throw new io.github.yesh.paycore.common.error.PayCoreException(
+          org.springframework.http.HttpStatus.UNAUTHORIZED,
+          "unauthorized",
+          "Authentication required");
+    }
+    return ResponseEntity.ok(userService.getUserByUsername(authentication.getName()));
   }
 
   @GetMapping("/.well-known/jwks.json")

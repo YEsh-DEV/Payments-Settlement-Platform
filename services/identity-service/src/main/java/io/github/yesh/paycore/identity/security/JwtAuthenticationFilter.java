@@ -22,6 +22,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+  private static final org.slf4j.Logger log =
+      org.slf4j.LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
   private final RsaKeyProvider rsaKeyProvider;
   private final TokenDenyListService tokenDenyListService;
 
@@ -68,8 +71,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
           }
         }
-      } catch (Exception ex) {
+      } catch (java.text.ParseException | com.nimbusds.jose.JOSEException ex) {
         // If token invalid, leave context unauthenticated
+        log.debug("JWT authentication filter error: {}", ex.getMessage());
         SecurityContextHolder.clearContext();
       }
     }

@@ -2,7 +2,7 @@
 FROM maven:3.9.9-eclipse-temurin-21-alpine AS build
 WORKDIR /build
 
-COPY pom.xml ./
+COPY pom.xml spotbugs-exclude.xml ./
 COPY libs/paycore-common ./libs/paycore-common
 COPY services/identity-service/pom.xml ./services/identity-service/pom.xml
 COPY services/ledger-service ./services/ledger-service

@@ -33,6 +33,7 @@ public class LedgerClient {
     }
   }
 
+  @org.springframework.beans.factory.annotation.Autowired
   public LedgerClient(
       RestTemplateBuilder restTemplateBuilder,
       @Value("${paycore.settlement.ledger-url:http://localhost:8082}") String ledgerUrl,
@@ -82,16 +83,20 @@ public class LedgerClient {
 
     try {
       ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
-      if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-        String token = (String) response.getBody().get("token");
-        Number expiresIn = (Number) response.getBody().get("expiresInSeconds");
-        long duration = expiresIn != null ? expiresIn.longValue() : 600L;
-        Instant expiresAt = Instant.now().plusSeconds(duration);
-        tokenCache.set(new CachedToken(token, expiresAt));
-        log.info("Acquired fresh service token from identity-service, valid for {}s", duration);
-        return token;
+      Map<?, ?> respBody = response.getBody();
+      if (response.getStatusCode().is2xxSuccessful() && respBody != null) {
+        String token = (String) respBody.get("token");
+        Number expiresIn = (Number) respBody.get("expiresInSeconds");
+        if (token != null) {
+          long duration = expiresIn != null ? expiresIn.longValue() : 600L;
+          Instant expiresAt = Instant.now().plusSeconds(duration);
+          tokenCache.set(new CachedToken(token, expiresAt));
+          log.info("Acquired fresh service token from identity-service, valid for {}s", duration);
+          return token;
+        }
       }
-      throw new RuntimeException("Failed to acquire service token: status " + response.getStatusCode());
+      throw new RuntimeException(
+          "Failed to acquire service token: status " + response.getStatusCode());
     } catch (Exception e) {
       log.error("Error calling identity-service for service token: {}", e.getMessage());
       throw new RuntimeException("Service token acquisition failed", e);
@@ -126,33 +131,52 @@ public class LedgerClient {
       ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
       return response.getBody();
     } catch (HttpStatusCodeException ex) {
-      log.error("Ledger initiatePayout failed with status {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+      log.error(
+          "Ledger initiatePayout failed with status {}: {}",
+          ex.getStatusCode(),
+          ex.getResponseBodyAsString());
       throw ex;
     }
   }
 
   public Map<String, Object> confirmPayout(String payoutId, String batchId) {
-    String url = ledgerUrl + "/v1/payouts/" + payoutId + "/confirm?batchId=" + (batchId != null ? batchId : "default");
+    String url =
+        ledgerUrl
+            + "/v1/payouts/"
+            + payoutId
+            + "/confirm?batchId="
+            + (batchId != null ? batchId : "default");
     HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(null));
 
     try {
       ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
       return response.getBody();
     } catch (HttpStatusCodeException ex) {
-      log.error("Ledger confirmPayout failed with status {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+      log.error(
+          "Ledger confirmPayout failed with status {}: {}",
+          ex.getStatusCode(),
+          ex.getResponseBodyAsString());
       throw ex;
     }
   }
 
   public Map<String, Object> failPayout(String payoutId, String reason) {
-    String url = ledgerUrl + "/v1/payouts/" + payoutId + "/fail?reason=" + (reason != null ? reason : "Bank failure");
+    String url =
+        ledgerUrl
+            + "/v1/payouts/"
+            + payoutId
+            + "/fail?reason="
+            + (reason != null ? reason : "Bank failure");
     HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(null));
 
     try {
       ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
       return response.getBody();
     } catch (HttpStatusCodeException ex) {
-      log.error("Ledger failPayout failed with status {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+      log.error(
+          "Ledger failPayout failed with status {}: {}",
+          ex.getStatusCode(),
+          ex.getResponseBodyAsString());
       throw ex;
     }
   }
@@ -174,7 +198,10 @@ public class LedgerClient {
       ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
       return response.getBody();
     } catch (HttpStatusCodeException ex) {
-      log.error("Ledger postProviderDeposit failed with status {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+      log.error(
+          "Ledger postProviderDeposit failed with status {}: {}",
+          ex.getStatusCode(),
+          ex.getResponseBodyAsString());
       throw ex;
     }
   }
@@ -202,7 +229,10 @@ public class LedgerClient {
       ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
       return response.getBody();
     } catch (HttpStatusCodeException ex) {
-      log.error("Ledger postAdjustment failed with status {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+      log.error(
+          "Ledger postAdjustment failed with status {}: {}",
+          ex.getStatusCode(),
+          ex.getResponseBodyAsString());
       throw ex;
     }
   }

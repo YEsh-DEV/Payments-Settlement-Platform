@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Ignore EI_EXPOSE_REP and EI_EXPOSE_REP2 for Spring beans, DTOs, and JPA Entities -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Ignore CT_CONSTRUCTOR_THROW (constructors throwing checked/runtime exceptions during init) -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+</FindBugsFilter>

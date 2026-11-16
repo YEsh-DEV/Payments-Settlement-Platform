@@ -96,7 +96,8 @@ class SettlementAdjustmentTest {
   }
 
   @Test
-  @DisplayName("Maker-Checker: Should approve, post to ledger, and resolve case when approver differs")
+  @DisplayName(
+      "Maker-Checker: Should approve, post to ledger, and resolve case when approver differs")
   void testMakerCheckerApproval() {
     AdjustmentRecord adj =
         new AdjustmentRecord(
@@ -136,7 +137,14 @@ class SettlementAdjustmentTest {
     assertThat(c.getApprovedBy()).isEqualTo("admin_bob");
     assertThat(c.getResolvedAt()).isNotNull();
 
-    verify(ledgerClient).postAdjustment(eq("ADJ_2"), eq("PROVIDER_FEE_EXPENSE"), eq("PROVIDER_RECEIVABLE"), eq(500L), eq("CASE_2"), any());
+    verify(ledgerClient)
+        .postAdjustment(
+            eq("ADJ_2"),
+            eq("PROVIDER_FEE_EXPENSE"),
+            eq("PROVIDER_RECEIVABLE"),
+            eq(500L),
+            eq("CASE_2"),
+            any());
     verify(caseRepo).save(c);
   }
 

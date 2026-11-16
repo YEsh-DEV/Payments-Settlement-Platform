@@ -33,14 +33,6 @@ public record CreateAdjustmentRequest(
       String caseId,
       String reason) {
     this(
-        adjustmentId,
-        null,
-        null,
-        debitAccount,
-        creditAccount,
-        amountPaise,
-        reason,
-        caseId,
-        caseId);
+        adjustmentId, null, null, debitAccount, creditAccount, amountPaise, reason, caseId, caseId);
   }
 }

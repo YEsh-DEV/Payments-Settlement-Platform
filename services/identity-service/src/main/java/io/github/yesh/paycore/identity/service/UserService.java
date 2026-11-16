@@ -50,6 +50,17 @@ public class UserService {
     return UserResponse.from(user);
   }
 
+  @Transactional(readOnly = true)
+  public UserResponse getUserByUsername(String username) {
+    User user =
+        userRepository
+            .findByUsernameIgnoreCase(username)
+            .orElseThrow(
+                () ->
+                    new PayCoreException(HttpStatus.NOT_FOUND, "user_not_found", "User not found"));
+    return UserResponse.from(user);
+  }
+
   @Transactional
   public UserResponse createUser(CreateUserRequest request, String currentActor) {
     if (userRepository.findByUsernameIgnoreCase(request.username()).isPresent()) {

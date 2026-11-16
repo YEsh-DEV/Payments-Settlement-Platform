@@ -2,7 +2,6 @@ package io.github.yesh.paycore.ledger.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import io.github.yesh.paycore.ledger.domain.Account;
@@ -46,7 +45,8 @@ class ProviderDepositServiceTest {
   }
 
   @Test
-  @DisplayName("Deposit with fees posts balanced journal: Debit BANK_CASH, Debit FEE_EXPENSE, Credit PROVIDER_RECEIVABLE")
+  @DisplayName(
+      "Deposit with fees posts balanced journal: Debit BANK_CASH, Debit FEE_EXPENSE, Credit PROVIDER_RECEIVABLE")
   void testDepositWithFees() {
     Account bankCash = new Account(SystemAccountInitializer.BANK_CASH, AccountType.ASSET, false, 1);
     bankCash.setId(UUID.randomUUID());
@@ -88,7 +88,8 @@ class ProviderDepositServiceTest {
 
     JournalRequest captured = captor.getValue();
     assertThat(captured.type()).isEqualTo(JournalType.DEPOSIT);
-    assertThat(captured.legs()).hasSize(3); // bankCash (debit), feeExpense (debit), providerReceivable (credit)
+    assertThat(captured.legs())
+        .hasSize(3); // bankCash (debit), feeExpense (debit), providerReceivable (credit)
 
     long totalDebits =
         captured.legs().stream()

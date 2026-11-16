@@ -240,7 +240,8 @@ public class IdempotencyService {
           && !auth.getName().isBlank()) {
         return auth.getName();
       }
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      log.debug("Could not resolve security context authentication: {}", e.getMessage());
     }
     return "global";
   }
@@ -249,19 +250,18 @@ public class IdempotencyService {
     try {
       ServletRequestAttributes attrs =
           (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-      if (attrs != null && attrs.getResponse() != null) {
+      if (attrs != null) {
         HttpServletResponse response = attrs.getResponse();
-        response.setHeader(IDEMPOTENT_REPLAYED_HEADER, "true");
-        if (statusCode != null) {
-          response.setStatus(statusCode);
+        if (response != null) {
+          response.setHeader(IDEMPOTENT_REPLAYED_HEADER, "true");
+          if (statusCode != null) {
+            response.setStatus(statusCode);
+          }
         }
       }
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      log.debug("Unable to set idempotent replay header: {}", e.getMessage());
     }
-  }
-
-  private void markReplayedHeader() {
-    markReplayedHeader(200);
   }
 
   public String hashPayload(String payload) {

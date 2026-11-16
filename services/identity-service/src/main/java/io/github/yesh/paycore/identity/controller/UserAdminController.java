@@ -14,7 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/admin/users")
+@RequestMapping({"/admin/users", "/v1/users"})
 @PreAuthorize("hasRole('ADMIN')")
 public class UserAdminController {
 

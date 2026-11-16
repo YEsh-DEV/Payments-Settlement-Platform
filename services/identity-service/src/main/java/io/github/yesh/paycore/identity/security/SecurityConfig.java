@@ -45,7 +45,10 @@ public class SecurityConfig {
                         "/auth/service-token",
                         "/auth/logout",
                         "/.well-known/jwks.json",
-                        "/actuator/**")
+                        "/actuator/**",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html")
                     .permitAll()
                     .requestMatchers("/admin/**")
                     .hasRole("ADMIN")

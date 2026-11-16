@@ -1,7 +1,6 @@
 package io.github.yesh.paycore.settlement;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -117,7 +116,8 @@ class SettlementConsumerDlqAndRetryTest {
   }
 
   @Test
-  @DisplayName("Consumer poison pill error: routes to ledger.domain-events.dlq and increments metric")
+  @DisplayName(
+      "Consumer poison pill error: routes to ledger.domain-events.dlq and increments metric")
   void testPoisonPillDlqRoutingAndMetric() {
     String dlqTopic = "ledger.domain-events.dlq";
 
@@ -134,7 +134,8 @@ class SettlementConsumerDlqAndRetryTest {
     DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
 
     ConsumerRecord<String, String> record =
-        new ConsumerRecord<>("ledger.domain-events", 2, 42L, "pay_err_1", "CORRUPT_NON_JSON_PAYLOAD");
+        new ConsumerRecord<>(
+            "ledger.domain-events", 2, 42L, "pay_err_1", "CORRUPT_NON_JSON_PAYLOAD");
     RuntimeException poisonError = new RuntimeException("Jackson JSON parse failure");
 
     // Directly test recoverer routing to DLQ and incrementing metric

@@ -108,7 +108,8 @@ class SubsetSumSolverTest {
   @DisplayName("Should bound search space to at most 40 batches")
   void testItemsBoundedTo40() {
     // 45 items of 1,000 paise each; target is 42,000 paise
-    // If bounded to 40 items, total sum of 40 items is 40,000 paise, so 42,000 paise cannot be matched
+    // If bounded to 40 items, total sum of 40 items is 40,000 paise, so 42,000 paise cannot be
+    // matched
     List<SubsetSumSolver.BatchItem> items =
         java.util.stream.IntStream.range(0, 45)
             .mapToObj(i -> new SubsetSumSolver.BatchItem("B" + i, 1000L))

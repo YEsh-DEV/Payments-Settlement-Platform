@@ -43,7 +43,8 @@ class BatchCutoffServiceTest {
   }
 
   @Test
-  @DisplayName("Should run batch cutoff, initiate ledger payouts, and transition to PAYOUTS_REQUESTED")
+  @DisplayName(
+      "Should run batch cutoff, initiate ledger payouts, and transition to PAYOUTS_REQUESTED")
   void testRunCutoffWithPendingRecords() {
     SettlementRecord r1 =
         new SettlementRecord(
@@ -95,7 +96,8 @@ class BatchCutoffServiceTest {
   }
 
   @Test
-  @DisplayName("Full Payout Lifecycle: PAYOUTS_REQUESTED -> sendPayoutFile -> SENT -> processBankResults -> COMPLETED")
+  @DisplayName(
+      "Full Payout Lifecycle: PAYOUTS_REQUESTED -> sendPayoutFile -> SENT -> processBankResults -> COMPLETED")
   void testFullPayoutLifecycle() {
     String batchId = "BATCH_TEST_101";
     Batch batch = new Batch(batchId, "2026-11-16T00:00:00Z");

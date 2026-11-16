@@ -96,8 +96,7 @@ public class SecurityConfig {
                     .authenticated())
         .oauth2ResourceServer(
             oauth2 ->
-                oauth2.jwt(
-                    jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+                oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
     return http.build();
   }
@@ -128,7 +127,10 @@ public class SecurityConfig {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "paycore.security.enabled", havingValue = "true", matchIfMissing = true)
+  @ConditionalOnProperty(
+      name = "paycore.security.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
   public JwtDecoder jwtDecoder() {
     return NimbusJwtDecoder.withJwkSetUri(jwksUri).build();
   }

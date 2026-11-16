@@ -120,8 +120,7 @@ public class ProviderDepositService {
             request.reference(),
             postingResult.journal().getPostedAt());
 
-    idempotencyService.completeKey(
-        scope, jrnKey, idempotencyService.serialize(response), 201);
+    idempotencyService.completeKey(scope, jrnKey, idempotencyService.serialize(response), 201);
 
     return response;
   }

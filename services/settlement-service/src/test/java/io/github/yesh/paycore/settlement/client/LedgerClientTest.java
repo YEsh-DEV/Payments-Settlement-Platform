@@ -38,7 +38,8 @@ class LedgerClientTest {
   @DisplayName("Acquires M2M token from identity-service and caches it")
   void testTokenAcquisitionAndCaching() {
     Map<String, Object> tokenBody = Map.of("token", "jwt_token_123", "expiresInSeconds", 600);
-    when(restTemplate.postForEntity(eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class)))
+    when(restTemplate.postForEntity(
+            eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class)))
         .thenReturn(new ResponseEntity<>(tokenBody, HttpStatus.OK));
 
     String token1 = ledgerClient.getServiceToken();
@@ -48,7 +49,8 @@ class LedgerClientTest {
     String token2 = ledgerClient.getServiceToken();
     assertThat(token2).isEqualTo("jwt_token_123");
 
-    verify(restTemplate, times(1)).postForEntity(eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class));
+    verify(restTemplate, times(1))
+        .postForEntity(eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class));
   }
 
   @Test
@@ -58,13 +60,15 @@ class LedgerClientTest {
     ledgerClient.setCachedTokenForTesting("expiring_soon_jwt", Instant.now().plusSeconds(30));
 
     Map<String, Object> freshTokenBody = Map.of("token", "fresh_jwt_456", "expiresInSeconds", 600);
-    when(restTemplate.postForEntity(eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class)))
+    when(restTemplate.postForEntity(
+            eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class)))
         .thenReturn(new ResponseEntity<>(freshTokenBody, HttpStatus.OK));
 
     String token = ledgerClient.getServiceToken();
     assertThat(token).isEqualTo("fresh_jwt_456");
 
-    verify(restTemplate, times(1)).postForEntity(eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class));
+    verify(restTemplate, times(1))
+        .postForEntity(eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class));
   }
 
   @Test
@@ -81,7 +85,8 @@ class LedgerClientTest {
     assertThat(result.get("status")).isEqualTo("INITIATED");
 
     ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
-    verify(restTemplate).postForEntity(eq("http://localhost:8082/v1/payouts"), captor.capture(), eq(Map.class));
+    verify(restTemplate)
+        .postForEntity(eq("http://localhost:8082/v1/payouts"), captor.capture(), eq(Map.class));
 
     HttpEntity entity = captor.getValue();
     HttpHeaders headers = entity.getHeaders();
@@ -95,7 +100,8 @@ class LedgerClientTest {
     ledgerClient.setCachedTokenForTesting("valid_token", Instant.now().plusSeconds(500));
 
     Map<String, Object> depositResponse = Map.of("depositId", "dep_55", "netAmount", 95000L);
-    when(restTemplate.postForEntity(eq("http://localhost:8082/v1/provider-deposits"), any(), eq(Map.class)))
+    when(restTemplate.postForEntity(
+            eq("http://localhost:8082/v1/provider-deposits"), any(), eq(Map.class)))
         .thenReturn(new ResponseEntity<>(depositResponse, HttpStatus.CREATED));
 
     Map<String, Object> result =
@@ -103,7 +109,9 @@ class LedgerClientTest {
     assertThat(result).isNotNull();
 
     ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
-    verify(restTemplate).postForEntity(eq("http://localhost:8082/v1/provider-deposits"), captor.capture(), eq(Map.class));
+    verify(restTemplate)
+        .postForEntity(
+            eq("http://localhost:8082/v1/provider-deposits"), captor.capture(), eq(Map.class));
 
     HttpEntity entity = captor.getValue();
     assertThat(entity.getHeaders().getFirst("Idempotency-Key")).isEqualTo("deposit:dep_55");

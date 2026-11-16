@@ -159,8 +159,10 @@ class AdjustmentServiceTest {
             "case_100",
             "Illegal seller adjustment");
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(() -> adjustmentService.postAdjustment(request))
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> adjustmentService.postAdjustment(request))
         .isInstanceOf(io.github.yesh.paycore.common.error.PayCoreException.class)
-        .hasFieldOrPropertyWithValue("status", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+        .hasFieldOrPropertyWithValue(
+            "status", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
   }
 }

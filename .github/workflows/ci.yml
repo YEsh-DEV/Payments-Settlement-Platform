@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend:
-    name: Backend Build, Format & Verification
+    name: Backend Quality Gates & Verification
     runs-on: ubuntu-latest
 
     steps:
@@ -23,21 +23,32 @@ jobs:
           cache: 'maven'
 
       - name: Verify Spotless Code Formatting
-        run: ./mvnw spotless:check
+        run: ./mvnw -B spotless:check
 
-      - name: Compile and Run Unit & Integration Tests
+      - name: Enforce Dependencies, SpotBugs, ArchUnit, Tests & JaCoCo Coverage
         run: ./mvnw -B verify
 
-      - name: Archive Test Results
+      - name: Archive Test Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-and-failsafe-reports
-          path: '**/target/*-reports/*.xml'
+          name: surefire-test-reports
+          path: '**/target/surefire-reports/*.xml'
+
+      - name: Archive JaCoCo Coverage Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-reports
+          path: '**/target/site/jacoco/**'
 
   frontend:
     name: Frontend Lint & Build
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: web/ops-console
 
     steps:
       - name: Check out repository
@@ -51,9 +62,49 @@ jobs:
           cache-dependency-path: 'web/ops-console/package-lock.json'
 
       - name: Install Dependencies
-        if: hashFiles('web/ops-console/package-lock.json') != ''
-        run: cd web/ops-console && npm ci
+        run: npm ci
 
-      - name: Typecheck and Build
-        if: hashFiles('web/ops-console/package-lock.json') != ''
-        run: cd web/ops-console && npm run build
+      - name: Lint Ops Console
+        run: npm run lint
+
+      - name: Typecheck and Build Bundle
+        run: npm run build
+
+  docker:
+    name: Container Build Verification
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Identity Service Image
+        run: docker build -f services/identity-service/Dockerfile -t paycore-identity-service:ci .
+
+      - name: Build Ledger Service Image
+        run: docker build -f services/ledger-service/Dockerfile -t paycore-ledger-service:ci .
+
+      - name: Build Settlement Service Image
+        run: docker build -f services/settlement-service/Dockerfile -t paycore-settlement-service:ci .
+
+      - name: Build Ops Console Image
+        run: docker build -f web/ops-console/Dockerfile -t paycore-ops-console:ci web/ops-console
+
+  security:
+    name: Secret & Credential Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for Uncommitted Secrets & Sensitive Tokens
+        run: |
+          echo "Scanning for potential committed credentials or private keys..."
+          ! git grep -iE "(BEGIN PRIVATE KEY|AWS_SECRET_ACCESS_KEY|bearer [a-zA-Z0-9_\-\.]{50,})" -- ':!.github' ':!*.md' ':!*.json'

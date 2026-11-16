@@ -18,6 +18,10 @@ public record ProblemDetails(
 
   public record InvalidParam(String name, String reason) {}
 
+  public ProblemDetails {
+    invalidParams = invalidParams != null ? List.copyOf(invalidParams) : null;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -68,7 +72,7 @@ public record ProblemDetails(
     }
 
     public Builder invalidParams(List<InvalidParam> invalidParams) {
-      this.invalidParams = invalidParams;
+      this.invalidParams = invalidParams != null ? List.copyOf(invalidParams) : null;
       return this;
     }
 

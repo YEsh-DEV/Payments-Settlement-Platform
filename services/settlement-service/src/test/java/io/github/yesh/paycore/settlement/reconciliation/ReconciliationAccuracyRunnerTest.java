@@ -67,29 +67,32 @@ class ReconciliationAccuracyRunnerTest {
     generateAccuracyReport(seedResults);
 
     // Verify assertions: precision and recall for all fault types must exceed 95%
-    for (String faultType : List.of(
-        "Missing Line",
-        "Ghost Line",
-        "Duplicate Line",
-        "Gross Mismatch",
-        "Fee Variance",
-        "Delayed Line",
-        "Two Batches in One Deposit",
-        "Reserve Holdback",
-        "Stripped Reference")) {
-      int totalSeeded = seedResults.stream().mapToInt(r -> r.faultMetrics.get(faultType).seededCount()).sum();
-      int totalTP = seedResults.stream().mapToInt(r -> r.faultMetrics.get(faultType).truePositives()).sum();
-      int totalFP = seedResults.stream().mapToInt(r -> r.faultMetrics.get(faultType).falsePositives()).sum();
+    for (String faultType :
+        List.of(
+            "Missing Line",
+            "Ghost Line",
+            "Duplicate Line",
+            "Gross Mismatch",
+            "Fee Variance",
+            "Delayed Line",
+            "Two Batches in One Deposit",
+            "Reserve Holdback",
+            "Stripped Reference")) {
+      int totalSeeded =
+          seedResults.stream().mapToInt(r -> r.faultMetrics.get(faultType).seededCount()).sum();
+      int totalTP =
+          seedResults.stream().mapToInt(r -> r.faultMetrics.get(faultType).truePositives()).sum();
+      int totalFP =
+          seedResults.stream().mapToInt(r -> r.faultMetrics.get(faultType).falsePositives()).sum();
 
-      double overallPrecision = (totalTP + totalFP) > 0 ? ((double) totalTP / (totalTP + totalFP)) * 100.0 : 100.0;
+      double overallPrecision =
+          (totalTP + totalFP) > 0 ? ((double) totalTP / (totalTP + totalFP)) * 100.0 : 100.0;
       double overallRecall = totalSeeded > 0 ? ((double) totalTP / totalSeeded) * 100.0 : 100.0;
 
       assertThat(overallPrecision)
           .as("Overall Precision for " + faultType)
           .isGreaterThanOrEqualTo(95.0);
-      assertThat(overallRecall)
-          .as("Overall Recall for " + faultType)
-          .isGreaterThanOrEqualTo(95.0);
+      assertThat(overallRecall).as("Overall Recall for " + faultType).isGreaterThanOrEqualTo(95.0);
     }
   }
 
@@ -147,7 +150,11 @@ class ReconciliationAccuracyRunnerTest {
       String ptxnId = "ptxn_s" + seed + "_" + i;
       String orderId = "ORD_S" + seed + "_" + i;
       long gross = 10000L + (random.nextInt(200) * 100L); // 10,000 to 30,000 paise
-      long fee = BigDecimal.valueOf(gross).multiply(BigDecimal.valueOf(200)).divide(BigDecimal.valueOf(10000), 0, RoundingMode.HALF_UP).longValue();
+      long fee =
+          BigDecimal.valueOf(gross)
+              .multiply(BigDecimal.valueOf(200))
+              .divide(BigDecimal.valueOf(10000), 0, RoundingMode.HALF_UP)
+              .longValue();
       long net = gross - fee;
       Instant txnTime = baseTime.plusSeconds(i * 30L);
 
@@ -169,7 +176,9 @@ class ReconciliationAccuracyRunnerTest {
       // Fault 1: Missing provider line (2 lines per seed)
       if (i < 2) {
         missingCandidateIds.add(recordId);
-        manifests.add(new SimulationManifest(batchId, "prov.csv", "FAULT_MISSING_PROVIDER_LINE", recordId, "Dropped"));
+        manifests.add(
+            new SimulationManifest(
+                batchId, "prov.csv", "FAULT_MISSING_PROVIDER_LINE", recordId, "Dropped"));
         continue;
       }
 
@@ -181,21 +190,27 @@ class ReconciliationAccuracyRunnerTest {
       if (i >= 2 && i < 4) {
         lineGross += 500L;
         grossMismatchCandidateIds.add(recordId);
-        manifests.add(new SimulationManifest(batchId, "prov.csv", "FAULT_GROSS_AMOUNT_MISMATCH", recordId, "Gross delta"));
+        manifests.add(
+            new SimulationManifest(
+                batchId, "prov.csv", "FAULT_GROSS_AMOUNT_MISMATCH", recordId, "Gross delta"));
       }
 
       // Fault 5: Fee variance (3 lines per seed)
       if (i >= 4 && i < 7) {
         lineFee += 350L;
         feeVarianceCandidateIds.add(recordId);
-        manifests.add(new SimulationManifest(batchId, "prov.csv", "FAULT_FEE_VARIANCE", recordId, "Fee delta"));
+        manifests.add(
+            new SimulationManifest(
+                batchId, "prov.csv", "FAULT_FEE_VARIANCE", recordId, "Fee delta"));
       }
 
       // Fault 6: Delayed line (2 lines per seed)
       if (i >= 7 && i < 9) {
         settleDate = today.plusDays(5); // outside grace period
         delayedLineCandidateIds.add(recordId);
-        manifests.add(new SimulationManifest(batchId, "prov.csv", "FAULT_LINE_DELAYED", recordId, "Delayed settle"));
+        manifests.add(
+            new SimulationManifest(
+                batchId, "prov.csv", "FAULT_LINE_DELAYED", recordId, "Delayed settle"));
       }
 
       ProviderLine line =
@@ -238,7 +253,9 @@ class ReconciliationAccuracyRunnerTest {
                 "{}");
         dupLine.setId(lineNumber);
         lines.add(dupLine);
-        manifests.add(new SimulationManifest(batchId, "prov.csv", "FAULT_DUPLICATE_PROVIDER_LINE", ptxnId, "Dup"));
+        manifests.add(
+            new SimulationManifest(
+                batchId, "prov.csv", "FAULT_DUPLICATE_PROVIDER_LINE", ptxnId, "Dup"));
       }
     }
 
@@ -264,7 +281,9 @@ class ReconciliationAccuracyRunnerTest {
               "{}");
       ghostLine.setId(lineNumber);
       lines.add(ghostLine);
-      manifests.add(new SimulationManifest(batchId, "prov.csv", "FAULT_MISSING_LEDGER_ITEM", ghostTxnId, "Ghost"));
+      manifests.add(
+          new SimulationManifest(
+              batchId, "prov.csv", "FAULT_MISSING_LEDGER_ITEM", ghostTxnId, "Ghost"));
     }
 
     // 2. Generate Batches & Bank Deposits with Faults 7, 8, 9
@@ -282,7 +301,8 @@ class ReconciliationAccuracyRunnerTest {
     batches.add(b2);
 
     BankDeposit depBundled =
-        new BankDeposit("DEP_S" + seed + "_BUNDLED", today, 600000L, "INR", "SETTLEMENT_MULTI_BATCH");
+        new BankDeposit(
+            "DEP_S" + seed + "_BUNDLED", today, 600000L, "INR", "SETTLEMENT_MULTI_BATCH");
     deposits.add(depBundled);
 
     // Batch 3: Reserve holdback 5% (Fault 8)
@@ -292,7 +312,8 @@ class ReconciliationAccuracyRunnerTest {
     batches.add(b3);
 
     BankDeposit depHoldback =
-        new BankDeposit("DEP_S" + seed + "_HB", today, 95000L, "INR", "SETTLEMENT_HB_BATCH_S" + seed + "_B3");
+        new BankDeposit(
+            "DEP_S" + seed + "_HB", today, 95000L, "INR", "SETTLEMENT_HB_BATCH_S" + seed + "_B3");
     deposits.add(depHoldback);
 
     // Batch 4: Stripped reference (Fault 9)
@@ -325,18 +346,22 @@ class ReconciliationAccuracyRunnerTest {
     }
 
     List<DiscrepancyCase> capturedCases = new ArrayList<>();
-    when(caseRepo.saveAll(any())).thenAnswer(inv -> {
-      List<DiscrepancyCase> list = inv.getArgument(0);
-      capturedCases.addAll(list);
-      return list;
-    });
+    when(caseRepo.saveAll(any()))
+        .thenAnswer(
+            inv -> {
+              List<DiscrepancyCase> list = inv.getArgument(0);
+              capturedCases.addAll(list);
+              return list;
+            });
 
     List<ReconciliationMatch> capturedMatches = new ArrayList<>();
-    when(matchRepo.saveAll(any())).thenAnswer(inv -> {
-      List<ReconciliationMatch> list = inv.getArgument(0);
-      capturedMatches.addAll(list);
-      return list;
-    });
+    when(matchRepo.saveAll(any()))
+        .thenAnswer(
+            inv -> {
+              List<ReconciliationMatch> list = inv.getArgument(0);
+              capturedMatches.addAll(list);
+              return list;
+            });
 
     // Execute run with holdback tolerance = 5000L
     ReconciliationRunRequest runReq =
@@ -347,56 +372,113 @@ class ReconciliationAccuracyRunnerTest {
     lines.forEach(l -> lineIdToTxnId.put(l.getId(), l.getProviderTxnId()));
 
     // Metrics Evaluation
-    int stage1Matches = (int) capturedMatches.stream().filter(m -> m.getStage() == ReconciliationStage.STAGE_1_EXACT).count();
-    int stage2Matches = (int) capturedMatches.stream().filter(m -> m.getStage() == ReconciliationStage.STAGE_2_FUZZY).count();
-    int stage3Matches = (int) deposits.stream().filter(d -> "MATCHED".equals(d.getStatus())).count();
+    int stage1Matches =
+        (int)
+            capturedMatches.stream()
+                .filter(m -> m.getStage() == ReconciliationStage.STAGE_1_EXACT)
+                .count();
+    int stage2Matches =
+        (int)
+            capturedMatches.stream()
+                .filter(m -> m.getStage() == ReconciliationStage.STAGE_2_FUZZY)
+                .count();
+    int stage3Matches =
+        (int) deposits.stream().filter(d -> "MATCHED".equals(d.getStatus())).count();
 
     Map<String, FaultMetrics> fm = new HashMap<>();
 
     // 1. Missing Line (Seeded: 2, Detected: MISSING_IN_PROVIDER cases for those candidate ids)
     int mlSeeded = missingCandidateIds.size();
-    int mlTP = (int) capturedCases.stream().filter(c -> c.getType() == CaseType.MISSING_IN_PROVIDER && missingCandidateIds.contains(c.getRecordId())).count();
+    int mlTP =
+        (int)
+            capturedCases.stream()
+                .filter(
+                    c ->
+                        c.getType() == CaseType.MISSING_IN_PROVIDER
+                            && missingCandidateIds.contains(c.getRecordId()))
+                .count();
     fm.put("Missing Line", new FaultMetrics("Missing Line", mlSeeded, mlTP, 0, mlSeeded - mlTP));
 
     // 2. Ghost Line (Seeded: 2, Detected: MISSING_IN_LEDGER cases)
     int glSeeded = ghostLineTxnIds.size();
-    int glTP = (int) capturedCases.stream().filter(c -> c.getType() == CaseType.MISSING_IN_LEDGER && ghostLineTxnIds.contains(lineIdToTxnId.get(c.getProviderLineId()))).count();
+    int glTP =
+        (int)
+            capturedCases.stream()
+                .filter(
+                    c ->
+                        c.getType() == CaseType.MISSING_IN_LEDGER
+                            && ghostLineTxnIds.contains(lineIdToTxnId.get(c.getProviderLineId())))
+                .count();
     fm.put("Ghost Line", new FaultMetrics("Ghost Line", glSeeded, glTP, 0, glSeeded - glTP));
 
     // 3. Duplicate Line (Seeded: 1, Detected: DUPLICATE_PROVIDER_LINE cases)
     int dlSeeded = duplicateTxnIds.size();
-    int dlTP = (int) capturedCases.stream().filter(c -> c.getType() == CaseType.DUPLICATE_PROVIDER_LINE).count();
-    fm.put("Duplicate Line", new FaultMetrics("Duplicate Line", dlSeeded, dlTP, 0, dlSeeded - dlTP));
+    int dlTP =
+        (int)
+            capturedCases.stream()
+                .filter(c -> c.getType() == CaseType.DUPLICATE_PROVIDER_LINE)
+                .count();
+    fm.put(
+        "Duplicate Line", new FaultMetrics("Duplicate Line", dlSeeded, dlTP, 0, dlSeeded - dlTP));
 
     // 4. Gross Mismatch (Seeded: 2, Detected: AMOUNT_MISMATCH cases)
     int gmSeeded = grossMismatchCandidateIds.size();
-    int gmTP = (int) capturedCases.stream().filter(c -> c.getType() == CaseType.AMOUNT_MISMATCH).count();
-    fm.put("Gross Mismatch", new FaultMetrics("Gross Mismatch", gmSeeded, gmTP, 0, gmSeeded - gmTP));
+    int gmTP =
+        (int) capturedCases.stream().filter(c -> c.getType() == CaseType.AMOUNT_MISMATCH).count();
+    fm.put(
+        "Gross Mismatch", new FaultMetrics("Gross Mismatch", gmSeeded, gmTP, 0, gmSeeded - gmTP));
 
     // 5. Fee Variance (Seeded: 3, Detected: FEE_VARIANCE cases)
     int fvSeeded = feeVarianceCandidateIds.size();
-    int fvTP = (int) capturedCases.stream().filter(c -> c.getType() == CaseType.FEE_VARIANCE).count();
+    int fvTP =
+        (int) capturedCases.stream().filter(c -> c.getType() == CaseType.FEE_VARIANCE).count();
     fm.put("Fee Variance", new FaultMetrics("Fee Variance", fvSeeded, fvTP, 0, fvSeeded - fvTP));
 
     // 6. Delayed Line (Seeded: 2, Settle date delayed beyond grace period -> MISSING_IN_PROVIDER)
     int delSeeded = delayedLineCandidateIds.size();
-    int delTP = (int) capturedCases.stream().filter(c -> c.getType() == CaseType.MISSING_IN_PROVIDER && delayedLineCandidateIds.contains(c.getRecordId())).count();
-    fm.put("Delayed Line", new FaultMetrics("Delayed Line", delSeeded, delTP, 0, delSeeded - delTP));
+    int delTP =
+        (int)
+            capturedCases.stream()
+                .filter(
+                    c ->
+                        c.getType() == CaseType.MISSING_IN_PROVIDER
+                            && delayedLineCandidateIds.contains(c.getRecordId()))
+                .count();
+    fm.put(
+        "Delayed Line", new FaultMetrics("Delayed Line", delSeeded, delTP, 0, delSeeded - delTP));
 
-    // 7. Two Batches in One Deposit (Seeded: 1, Detected: deposit status MATCHED and b1, b2 RECONCILED)
+    // 7. Two Batches in One Deposit (Seeded: 1, Detected: deposit status MATCHED and b1, b2
+    // RECONCILED)
     int tbSeeded = 1;
-    int tbTP = ("MATCHED".equals(depBundled.getStatus()) && b1.getStatus() == BatchStatus.RECONCILED && b2.getStatus() == BatchStatus.RECONCILED) ? 1 : 0;
-    fm.put("Two Batches in One Deposit", new FaultMetrics("Two Batches in One Deposit", tbSeeded, tbTP, 0, tbSeeded - tbTP));
+    int tbTP =
+        ("MATCHED".equals(depBundled.getStatus())
+                && b1.getStatus() == BatchStatus.RECONCILED
+                && b2.getStatus() == BatchStatus.RECONCILED)
+            ? 1
+            : 0;
+    fm.put(
+        "Two Batches in One Deposit",
+        new FaultMetrics("Two Batches in One Deposit", tbSeeded, tbTP, 0, tbSeeded - tbTP));
 
     // 8. Reserve Holdback (Seeded: 1, Detected: depHoldback MATCHED and b3 RECONCILED)
     int rhSeeded = 1;
-    int rhTP = ("MATCHED".equals(depHoldback.getStatus()) && b3.getStatus() == BatchStatus.RECONCILED) ? 1 : 0;
-    fm.put("Reserve Holdback", new FaultMetrics("Reserve Holdback", rhSeeded, rhTP, 0, rhSeeded - rhTP));
+    int rhTP =
+        ("MATCHED".equals(depHoldback.getStatus()) && b3.getStatus() == BatchStatus.RECONCILED)
+            ? 1
+            : 0;
+    fm.put(
+        "Reserve Holdback",
+        new FaultMetrics("Reserve Holdback", rhSeeded, rhTP, 0, rhSeeded - rhTP));
 
     // 9. Stripped Reference (Seeded: 1, Detected: depStripped MATCHED and b4 RECONCILED)
     int srSeeded = 1;
-    int srTP = ("MATCHED".equals(depStripped.getStatus()) && b4.getStatus() == BatchStatus.RECONCILED) ? 1 : 0;
-    fm.put("Stripped Reference", new FaultMetrics("Stripped Reference", srSeeded, srTP, 0, srSeeded - srTP));
+    int srTP =
+        ("MATCHED".equals(depStripped.getStatus()) && b4.getStatus() == BatchStatus.RECONCILED)
+            ? 1
+            : 0;
+    fm.put(
+        "Stripped Reference",
+        new FaultMetrics("Stripped Reference", srSeeded, srTP, 0, srSeeded - srTP));
 
     return new SeedRunResult(
         seed,
@@ -417,33 +499,45 @@ class ReconciliationAccuracyRunnerTest {
     try (PrintWriter out = new PrintWriter(new FileWriter(reportFile))) {
       out.println("# PayCore Reconciliation Engine Accuracy Report");
       out.println();
-      out.println("> **Methodological Provenance Note:** All accuracy metrics, precision, recall, and match rates in this report were **measured against synthetic faults generated by this repository's own simulator** (`ProviderSimulatorService`). No external or production figures are claimed.");
+      out.println(
+          "> **Methodological Provenance Note:** All accuracy metrics, precision, recall, and match rates in this report were **measured against synthetic faults generated by this repository's own simulator** (`ProviderSimulatorService`). No external or production figures are claimed.");
       out.println();
       out.println("## 1. Executive Summary");
       out.println();
-      out.println("- **Evaluation Protocol:** 20 distinct pseudo-random simulation seeds (Seeds 1–20)");
-      out.println("- **Baseline Volume per Seed:** 100 transaction candidates, 100+ provider settlement lines, 5 batches, 4 bank deposits");
-      out.println("- **Total Evaluated Volume:** " + (runs.size() * 100) + " ledger candidates, " + runs.stream().mapToInt(r -> r.totalLines).sum() + " provider settlement lines");
-      out.println("- **Overall Match Pipeline:** 4-Stage Reconciliation (Exact Line -> Fuzzy Fallback -> Batch-to-Deposit Subset Search -> Ledger Posting)");
-      out.println("- **Fee Model Enforced:** `expected_fee = round_half_up(gross * 200 / 10000) + providerFixedFee` (tolerance: 1 paisa)");
+      out.println(
+          "- **Evaluation Protocol:** 20 distinct pseudo-random simulation seeds (Seeds 1–20)");
+      out.println(
+          "- **Baseline Volume per Seed:** 100 transaction candidates, 100+ provider settlement lines, 5 batches, 4 bank deposits");
+      out.println(
+          "- **Total Evaluated Volume:** "
+              + (runs.size() * 100)
+              + " ledger candidates, "
+              + runs.stream().mapToInt(r -> r.totalLines).sum()
+              + " provider settlement lines");
+      out.println(
+          "- **Overall Match Pipeline:** 4-Stage Reconciliation (Exact Line -> Fuzzy Fallback -> Batch-to-Deposit Subset Search -> Ledger Posting)");
+      out.println(
+          "- **Fee Model Enforced:** `expected_fee = round_half_up(gross * 200 / 10000) + providerFixedFee` (tolerance: 1 paisa)");
       out.println();
       out.println("---");
       out.println();
       out.println("## 2. Per-Fault Precision and Recall (Aggregated Across 20 Seeds)");
       out.println();
-      out.println("| Fault Type | Description | Total Seeded | True Positives (TP) | False Positives (FP) | False Negatives (FN) | Precision (%) | Recall (%) |");
+      out.println(
+          "| Fault Type | Description | Total Seeded | True Positives (TP) | False Positives (FP) | False Negatives (FN) | Precision (%) | Recall (%) |");
       out.println("| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |");
 
-      List<String> faultTypes = List.of(
-          "Missing Line",
-          "Ghost Line",
-          "Duplicate Line",
-          "Gross Mismatch",
-          "Fee Variance",
-          "Delayed Line",
-          "Two Batches in One Deposit",
-          "Reserve Holdback",
-          "Stripped Reference");
+      List<String> faultTypes =
+          List.of(
+              "Missing Line",
+              "Ghost Line",
+              "Duplicate Line",
+              "Gross Mismatch",
+              "Fee Variance",
+              "Delayed Line",
+              "Two Batches in One Deposit",
+              "Reserve Holdback",
+              "Stripped Reference");
 
       for (String ft : faultTypes) {
         int seeded = runs.stream().mapToInt(r -> r.faultMetrics.get(ft).seededCount()).sum();
@@ -454,20 +548,23 @@ class ReconciliationAccuracyRunnerTest {
         double precision = (tp + fp) > 0 ? ((double) tp / (tp + fp)) * 100.0 : 100.0;
         double recall = seeded > 0 ? ((double) tp / seeded) * 100.0 : 100.0;
 
-        String desc = switch (ft) {
-          case "Missing Line" -> "Candidate dropped from provider settlement file";
-          case "Ghost Line" -> "Provider line with no matching ledger record";
-          case "Duplicate Line" -> "Duplicate provider line emitted for same txn";
-          case "Gross Mismatch" -> "Gross amount altered (+500 paise delta)";
-          case "Fee Variance" -> "Provider fee deviates from expected fee model";
-          case "Delayed Line" -> "Settlement date delayed beyond 3-day grace period";
-          case "Two Batches in One Deposit" -> "Multiple batches bundled into single bank deposit";
-          case "Reserve Holdback" -> "5% reserve holdback deducted from bank deposit";
-          case "Stripped Reference" -> "Bank deposit reference text stripped of batch ID";
-          default -> "";
-        };
+        String desc =
+            switch (ft) {
+              case "Missing Line" -> "Candidate dropped from provider settlement file";
+              case "Ghost Line" -> "Provider line with no matching ledger record";
+              case "Duplicate Line" -> "Duplicate provider line emitted for same txn";
+              case "Gross Mismatch" -> "Gross amount altered (+500 paise delta)";
+              case "Fee Variance" -> "Provider fee deviates from expected fee model";
+              case "Delayed Line" -> "Settlement date delayed beyond 3-day grace period";
+              case "Two Batches in One Deposit" ->
+                  "Multiple batches bundled into single bank deposit";
+              case "Reserve Holdback" -> "5% reserve holdback deducted from bank deposit";
+              case "Stripped Reference" -> "Bank deposit reference text stripped of batch ID";
+              default -> "";
+            };
 
-        out.printf("| **%s** | %s | %d | %d | %d | %d | **%.1f%%** | **%.1f%%** |\n",
+        out.printf(
+            "| **%s** | %s | %d | %d | %d | %d | **%.1f%%** | **%.1f%%** |\n",
             ft, desc, seeded, tp, fp, fn, precision, recall);
       }
 
@@ -476,7 +573,8 @@ class ReconciliationAccuracyRunnerTest {
       out.println();
       out.println("## 3. Match Rate per Stage");
       out.println();
-      out.println("| Stage | Mechanism | Volume Processed | Successfully Matched | Match Rate (%) |");
+      out.println(
+          "| Stage | Mechanism | Volume Processed | Successfully Matched | Match Rate (%) |");
       out.println("| :--- | :--- | :---: | :---: | :---: |");
 
       int totalCandidates = runs.stream().mapToInt(r -> r.totalCandidates).sum();
@@ -485,7 +583,10 @@ class ReconciliationAccuracyRunnerTest {
 
       int residualAfterStage1 = totalCandidates - totalStage1Matches;
       int totalStage2Matches = runs.stream().mapToInt(r -> r.stage2Matches).sum();
-      double stage2Rate = residualAfterStage1 > 0 ? ((double) totalStage2Matches / residualAfterStage1) * 100.0 : 100.0;
+      double stage2Rate =
+          residualAfterStage1 > 0
+              ? ((double) totalStage2Matches / residualAfterStage1) * 100.0
+              : 100.0;
 
       int totalDeposits = runs.size() * 4;
       int totalStage3Matches = runs.stream().mapToInt(r -> r.stage3Matches).sum();
@@ -494,13 +595,17 @@ class ReconciliationAccuracyRunnerTest {
       int totalLineMatches = totalStage1Matches + totalStage2Matches;
       double overallLineMatchRate = ((double) totalLineMatches / totalCandidates) * 100.0;
 
-      out.printf("| **Stage 1 (Line Matching)** | Exact on `provider_txn_id` + Fee Model Check | %d lines | %d lines | **%.1f%%** |\n",
+      out.printf(
+          "| **Stage 1 (Line Matching)** | Exact on `provider_txn_id` + Fee Model Check | %d lines | %d lines | **%.1f%%** |\n",
           totalCandidates, totalStage1Matches, stage1Rate);
-      out.printf("| **Stage 2 (Fuzzy Fallback)** | `merchant_ref` and $\\pm 10\\text{ min}$ unique candidate window | %d lines | %d lines | **%.1f%%** |\n",
+      out.printf(
+          "| **Stage 2 (Fuzzy Fallback)** | `merchant_ref` and $\\pm 10\\text{ min}$ unique candidate window | %d lines | %d lines | **%.1f%%** |\n",
           residualAfterStage1, totalStage2Matches, stage2Rate);
-      out.printf("| **Stage 3 (Batch to Deposit)** | Exact 1:1, Reference Hint, Bounded Subset Search | %d deposits | %d deposits | **%.1f%%** |\n",
+      out.printf(
+          "| **Stage 3 (Batch to Deposit)** | Exact 1:1, Reference Hint, Bounded Subset Search | %d deposits | %d deposits | **%.1f%%** |\n",
           totalDeposits, totalStage3Matches, stage3Rate);
-      out.printf("| **Overall Pipeline** | End-to-end multi-stage reconciliation | %d items | %d items | **%.1f%%** |\n",
+      out.printf(
+          "| **Overall Pipeline** | End-to-end multi-stage reconciliation | %d items | %d items | **%.1f%%** |\n",
           totalCandidates, totalLineMatches, overallLineMatchRate);
 
       out.println();
@@ -508,24 +613,37 @@ class ReconciliationAccuracyRunnerTest {
       out.println();
       out.println("## 4. Algorithmic Guardrails and Complexity Bounds");
       out.println();
-      out.println("Stage 3 uses dynamic programming and bounded search over subset sums (NP-complete in general). The implementation enforces the following limits:");
+      out.println(
+          "Stage 3 uses dynamic programming and bounded search over subset sums (NP-complete in general). The implementation enforces the following limits:");
       out.println();
-      out.println("1. **Batch Search Space Cap:** Maximum **40 batches** explored per deposit (`Math.min(items.size(), 40)`).");
-      out.println("2. **State Space Cap:** Hard ceiling of **50,000 states** visited during recursive search; exceeding this ceiling immediately aborts search with status `TIMEOUT`.");
+      out.println(
+          "1. **Batch Search Space Cap:** Maximum **40 batches** explored per deposit (`Math.min(items.size(), 40)`).");
+      out.println(
+          "2. **State Space Cap:** Hard ceiling of **50,000 states** visited during recursive search; exceeding this ceiling immediately aborts search with status `TIMEOUT`.");
       out.println("3. **Execution Deadline:** Hard **5,000 ms (5.0s)** deadline per bank deposit.");
-      out.println("4. **Zero-Guessing Policy:** If more than one subset of batches equals the target deposit within tolerance, the solver returns `AMBIGUOUS_MATCH` and creates a high-severity `DEPOSIT_UNMATCHED` Case rather than guessing.");
-      out.println("5. **Deduplication Invariant:** Re-running reconciliation over the same date range or batch recreates matches but **never duplicates cases**, backed by PostgreSQL unique constraint `idx_cases_type_reference ON cases(type, reference_id)`.");
+      out.println(
+          "4. **Zero-Guessing Policy:** If more than one subset of batches equals the target deposit within tolerance, the solver returns `AMBIGUOUS_MATCH` and creates a high-severity `DEPOSIT_UNMATCHED` Case rather than guessing.");
+      out.println(
+          "5. **Deduplication Invariant:** Re-running reconciliation over the same date range or batch recreates matches but **never duplicates cases**, backed by PostgreSQL unique constraint `idx_cases_type_reference ON cases(type, reference_id)`.");
       out.println();
       out.println("---");
       out.println();
       out.println("## 5. Seed-by-Seed Provenance Matrix (20 Runs)");
       out.println();
-      out.println("| Seed | Candidates | Prov Lines | Stage 1 Matched | Stage 2 Matched | Stage 3 Deposits Matched | Discrepancies (Cases) | Status |");
+      out.println(
+          "| Seed | Candidates | Prov Lines | Stage 1 Matched | Stage 2 Matched | Stage 3 Deposits Matched | Discrepancies (Cases) | Status |");
       out.println("| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |");
 
       for (SeedRunResult r : runs) {
-        out.printf("| #%d | %d | %d | %d | %d | %d / 4 | %d | PASS |\n",
-            r.seed, r.totalCandidates, r.totalLines, r.stage1Matches, r.stage2Matches, r.stage3Matches, r.totalCases);
+        out.printf(
+            "| #%d | %d | %d | %d | %d | %d / 4 | %d | PASS |\n",
+            r.seed,
+            r.totalCandidates,
+            r.totalLines,
+            r.stage1Matches,
+            r.stage2Matches,
+            r.stage3Matches,
+            r.totalCases);
       }
       out.println();
       out.println("---");

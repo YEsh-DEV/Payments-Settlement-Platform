@@ -4,8 +4,6 @@ import io.github.yesh.paycore.settlement.dto.ReconciliationMatchResponse;
 import io.github.yesh.paycore.settlement.dto.ReconciliationRunRequest;
 import io.github.yesh.paycore.settlement.dto.ReconciliationRunResponse;
 import io.github.yesh.paycore.settlement.reconciliation.ReconciliationEngine;
-import io.github.yesh.paycore.settlement.repository.ReconciliationMatchRepository;
-import io.github.yesh.paycore.settlement.repository.ReconciliationRunRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -16,16 +14,9 @@ import org.springframework.web.bind.annotation.*;
 public class ReconciliationController {
 
   private final ReconciliationEngine reconciliationEngine;
-  private final ReconciliationRunRepository runRepository;
-  private final ReconciliationMatchRepository matchRepository;
 
-  public ReconciliationController(
-      ReconciliationEngine reconciliationEngine,
-      ReconciliationRunRepository runRepository,
-      ReconciliationMatchRepository matchRepository) {
+  public ReconciliationController(ReconciliationEngine reconciliationEngine) {
     this.reconciliationEngine = reconciliationEngine;
-    this.runRepository = runRepository;
-    this.matchRepository = matchRepository;
   }
 
   @PostMapping("/runs")
@@ -37,17 +28,13 @@ public class ReconciliationController {
 
   @GetMapping("/runs")
   public ResponseEntity<Page<ReconciliationRunResponse>> listRuns(Pageable pageable) {
-    return ResponseEntity.ok(
-        runRepository
-            .findAllByOrderByStartedAtDesc(pageable)
-            .map(ReconciliationRunResponse::fromEntity));
+    return ResponseEntity.ok(reconciliationEngine.listRuns(pageable));
   }
 
   @GetMapping("/runs/{runId}")
   public ResponseEntity<ReconciliationRunResponse> getRun(@PathVariable String runId) {
-    return runRepository
-        .findByRunId(runId)
-        .map(ReconciliationRunResponse::fromEntity)
+    return reconciliationEngine
+        .getRun(runId)
         .map(ResponseEntity::ok)
         .orElseGet(() -> ResponseEntity.notFound().build());
   }
@@ -55,7 +42,6 @@ public class ReconciliationController {
   @GetMapping("/runs/{runId}/matches")
   public ResponseEntity<Page<ReconciliationMatchResponse>> getMatches(
       @PathVariable String runId, Pageable pageable) {
-    return ResponseEntity.ok(
-        matchRepository.findByRunId(runId, pageable).map(ReconciliationMatchResponse::fromEntity));
+    return ResponseEntity.ok(reconciliationEngine.getMatches(runId, pageable));
   }
 }

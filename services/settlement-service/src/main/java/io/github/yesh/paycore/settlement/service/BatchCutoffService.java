@@ -69,9 +69,7 @@ public class BatchCutoffService {
     acquireAdvisoryLock();
 
     Instant cutoffTime =
-        (request != null && request.cutoffTime() != null)
-            ? request.cutoffTime()
-            : Instant.now();
+        (request != null && request.cutoffTime() != null) ? request.cutoffTime() : Instant.now();
 
     long minPayoutAmount =
         (request != null && request.minPayoutAmountPaise() != null)
@@ -257,7 +255,9 @@ public class BatchCutoffService {
             continue;
           }
 
-          if ("CONFIRMED".equalsIgnoreCase(status) || "PAID".equalsIgnoreCase(status) || "SUCCESS".equalsIgnoreCase(status)) {
+          if ("CONFIRMED".equalsIgnoreCase(status)
+              || "PAID".equalsIgnoreCase(status)
+              || "SUCCESS".equalsIgnoreCase(status)) {
             if ("FAILED".equalsIgnoreCase(p.getStatus())) {
               throw new InvalidTransitionException(
                   "Cannot confirm payout " + payoutId + " in FAILED status");

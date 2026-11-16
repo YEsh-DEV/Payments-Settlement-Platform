@@ -37,7 +37,9 @@ public class ReconciliationEngine {
   private final SimulationManifestRepository manifestRepository;
   private final ObjectMapper objectMapper;
   private final MeterRegistry meterRegistry;
-  @Autowired(required = false) private io.github.yesh.paycore.settlement.client.LedgerClient ledgerClient;
+
+  @Autowired(required = false)
+  private io.github.yesh.paycore.settlement.client.LedgerClient ledgerClient;
 
   public void setLedgerClient(io.github.yesh.paycore.settlement.client.LedgerClient ledgerClient) {
     this.ledgerClient = ledgerClient;
@@ -199,9 +201,9 @@ public class ReconciliationEngine {
           // Check Fee Model (Playbook 10.3 / WP-G)
           long expectedFee =
               BigDecimal.valueOf(gross)
-                  .multiply(BigDecimal.valueOf(providerFeeBps))
-                  .divide(BigDecimal.valueOf(10000), 0, RoundingMode.HALF_UP)
-                  .longValue()
+                      .multiply(BigDecimal.valueOf(providerFeeBps))
+                      .divide(BigDecimal.valueOf(10000), 0, RoundingMode.HALF_UP)
+                      .longValue()
                   + providerFixedFee;
           long feeVariance = Math.abs(line.getFeePaise() - expectedFee);
 
@@ -690,5 +692,31 @@ public class ReconciliationEngine {
             ex.getMessage());
       }
     }
+  }
+
+  @Transactional(readOnly = true)
+  public org.springframework.data.domain.Page<
+          io.github.yesh.paycore.settlement.dto.ReconciliationRunResponse>
+      listRuns(org.springframework.data.domain.Pageable pageable) {
+    return runRepository
+        .findAllByOrderByStartedAtDesc(pageable)
+        .map(io.github.yesh.paycore.settlement.dto.ReconciliationRunResponse::fromEntity);
+  }
+
+  @Transactional(readOnly = true)
+  public java.util.Optional<io.github.yesh.paycore.settlement.dto.ReconciliationRunResponse> getRun(
+      String runId) {
+    return runRepository
+        .findByRunId(runId)
+        .map(io.github.yesh.paycore.settlement.dto.ReconciliationRunResponse::fromEntity);
+  }
+
+  @Transactional(readOnly = true)
+  public org.springframework.data.domain.Page<
+          io.github.yesh.paycore.settlement.dto.ReconciliationMatchResponse>
+      getMatches(String runId, org.springframework.data.domain.Pageable pageable) {
+    return matchRepository
+        .findByRunId(runId, pageable)
+        .map(io.github.yesh.paycore.settlement.dto.ReconciliationMatchResponse::fromEntity);
   }
 }

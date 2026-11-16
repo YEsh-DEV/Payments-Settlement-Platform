@@ -20,7 +20,6 @@ import io.github.yesh.paycore.settlement.repository.SettlementRecordRepository;
 import io.github.yesh.paycore.settlement.service.BatchCutoffService;
 import io.github.yesh.paycore.settlement.service.SettlementCandidateConsumer;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -33,7 +32,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 public class PaymentToSettlementEndToEndIntegrationTest {
@@ -178,15 +176,13 @@ public class PaymentToSettlementEndToEndIntegrationTest {
     assertThat(batchResponse.status()).isEqualTo(BatchStatus.PAYOUTS_REQUESTED);
 
     // Verify candidate was linked and status updated to BATCHED
-    SettlementRecord batchedRecord =
-        recordRepository.findByPaymentId(paymentId).orElseThrow();
+    SettlementRecord batchedRecord = recordRepository.findByPaymentId(paymentId).orElseThrow();
     assertThat(batchedRecord.getBatchId()).isEqualTo(batchId);
     assertThat(batchedRecord.getStatus()).isEqualTo(SettlementRecordStatus.BATCHED);
 
     // Verify deterministic payout was generated and ledger was called
     String expectedPayoutId = batchId + ":" + sellerId;
-    SettlementPayout payout =
-        payoutRepository.findByPayoutId(expectedPayoutId).orElseThrow();
+    SettlementPayout payout = payoutRepository.findByPayoutId(expectedPayoutId).orElseThrow();
     assertThat(payout.getAmountPaise()).isEqualTo(98000L);
     assertThat(payout.getLedgerPayoutId()).isEqualTo(expectedPayoutId);
 
@@ -206,7 +202,9 @@ public class PaymentToSettlementEndToEndIntegrationTest {
 
     // Step 6: Bank confirmation response file arrives -> confirm payout
     String bankResultCsv =
-        "payout_id,status,reason\n" + expectedPayoutId + ",CONFIRMED,Transfer settled successfully\n";
+        "payout_id,status,reason\n"
+            + expectedPayoutId
+            + ",CONFIRMED,Transfer settled successfully\n";
     BatchResponse completedBatch = batchCutoffService.processBankResults(batchId, bankResultCsv);
 
     assertThat(completedBatch.status()).isEqualTo(BatchStatus.COMPLETED);

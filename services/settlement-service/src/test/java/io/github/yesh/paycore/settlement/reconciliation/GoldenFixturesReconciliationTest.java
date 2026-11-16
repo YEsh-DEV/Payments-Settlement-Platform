@@ -196,7 +196,8 @@ class GoldenFixturesReconciliationTest {
             "{}");
     line.setId(201L);
 
-    // Two candidates with same amount (50,000 paise) within +/- 10 min, neither has matching merchantRef
+    // Two candidates with same amount (50,000 paise) within +/- 10 min, neither has matching
+    // merchantRef
     SettlementRecord candidate1 =
         new SettlementRecord(
             "REC_A",
