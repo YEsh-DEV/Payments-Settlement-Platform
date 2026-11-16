@@ -1,0 +1,5 @@
+provider_batch_id,provider_txn_id,txn_type,merchant_ref,gross_amount,fee_amount,net_amount,currency,txn_time,settle_date
+BATCH_TRIPLE_1,ptxn_trip_1,CAPTURE,ORD_T1,120000,2400,117600,INR,2026-11-16T15:00:00Z,2026-11-16
+BATCH_TRIPLE_2,ptxn_trip_2,CAPTURE,ORD_T2,180000,3600,176400,INR,2026-11-16T15:05:00Z,2026-11-16
+BATCH_TRIPLE_3,ptxn_trip_3,CAPTURE,ORD_T3,200000,4000,196000,INR,2026-11-16T15:10:00Z,2026-11-16
+TRAILER,3,500000

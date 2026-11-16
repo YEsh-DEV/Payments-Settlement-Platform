@@ -8,8 +8,11 @@ import io.github.yesh.paycore.settlement.repository.*;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -99,8 +102,14 @@ public class ReconciliationEngine {
 
     int providerFeeBps =
         (request != null && request.providerFeeBps() != null) ? request.providerFeeBps() : 200;
+    long providerFixedFee =
+        (request != null && request.providerFixedFee() != null) ? request.providerFixedFee() : 0L;
     long feeTolerance =
         (request != null && request.feeToleranceMinor() != null) ? request.feeToleranceMinor() : 1L;
+    long reserveHoldbackTolerance =
+        (request != null && request.reserveHoldbackToleranceMinor() != null)
+            ? request.reserveHoldbackToleranceMinor()
+            : 0L;
 
     // Load Candidates
     List<SettlementRecord> candidates =
@@ -120,6 +129,7 @@ public class ReconciliationEngine {
 
     Set<String> matchedRecordIds = new HashSet<>();
     Set<String> matchedLineKeys = new HashSet<>();
+    Set<String> createdCaseKeys = new HashSet<>();
     List<ReconciliationMatch> matches = new ArrayList<>();
     List<DiscrepancyCase> cases = new ArrayList<>();
 
@@ -139,16 +149,18 @@ public class ReconciliationEngine {
         for (int i = 1; i < entry.getValue().size(); i++) {
           ProviderLine dupLine = entry.getValue().get(i);
           matchedLineKeys.add(getLineKey(dupLine));
-          discrepancyCount++;
-          cases.add(
-              createCase(
-                  runId,
-                  null,
-                  dupLine.getId(),
-                  null,
-                  CaseType.DUPLICATE_PROVIDER_LINE,
-                  CaseSeverity.HIGH,
-                  dupLine.getAmountPaise()));
+          if (recordCase(
+              cases,
+              createdCaseKeys,
+              runId,
+              null,
+              dupLine.getId(),
+              null,
+              CaseType.DUPLICATE_PROVIDER_LINE,
+              calculateSeverity(dupLine.getAmountPaise(), CaseType.DUPLICATE_PROVIDER_LINE),
+              dupLine.getAmountPaise())) {
+            discrepancyCount++;
+          }
         }
       }
     }
@@ -169,17 +181,32 @@ public class ReconciliationEngine {
 
       SettlementRecord candidate = candidatesByTxnId.get(line.getProviderTxnId());
       if (candidate != null && !matchedRecordIds.contains(candidate.getRecordId())) {
+        // Playbook 10.4: Check grace period (default 3 days)
+        if (candidate.getOccurredAt() != null && line.getSettleDate() != null) {
+          LocalDate candidateDate =
+              candidate.getOccurredAt().atZone(java.time.ZoneOffset.UTC).toLocalDate();
+          long daysDelayed = ChronoUnit.DAYS.between(candidateDate, line.getSettleDate());
+          if (daysDelayed > 3) {
+            // Line delayed beyond 3-day grace period; do not match in this settlement window
+            continue;
+          }
+        }
+
         long gross = candidate.getGrossPaise();
         long lineAmount = line.getAmountPaise();
 
         if (gross == lineAmount) {
-          // Check Fee Model
-          long expectedFee = Math.round((double) gross * providerFeeBps / 10000.0);
+          // Check Fee Model (Playbook 10.3 / WP-G)
+          long expectedFee =
+              BigDecimal.valueOf(gross)
+                  .multiply(BigDecimal.valueOf(providerFeeBps))
+                  .divide(BigDecimal.valueOf(10000), 0, RoundingMode.HALF_UP)
+                  .longValue()
+                  + providerFixedFee;
           long feeVariance = Math.abs(line.getFeePaise() - expectedFee);
 
           if (feeVariance > feeTolerance) {
             // Fee discrepancy
-            discrepancyCount++;
             totalVariance += feeVariance;
 
             matches.add(
@@ -195,15 +222,18 @@ public class ReconciliationEngine {
                     lineAmount,
                     feeVariance));
 
-            cases.add(
-                createCase(
-                    runId,
-                    candidate.getRecordId(),
-                    line.getId(),
-                    null,
-                    CaseType.FEE_VARIANCE,
-                    calculateSeverity(feeVariance),
-                    feeVariance));
+            if (recordCase(
+                cases,
+                createdCaseKeys,
+                runId,
+                candidate.getRecordId(),
+                line.getId(),
+                null,
+                CaseType.FEE_VARIANCE,
+                calculateSeverity(feeVariance, CaseType.FEE_VARIANCE),
+                feeVariance)) {
+              discrepancyCount++;
+            }
           } else {
             // Exact Match
             matchedCount++;
@@ -226,7 +256,6 @@ public class ReconciliationEngine {
         } else {
           // Amount mismatch
           long variance = Math.abs(gross - lineAmount);
-          discrepancyCount++;
           totalVariance += variance;
 
           matches.add(
@@ -242,15 +271,18 @@ public class ReconciliationEngine {
                   lineAmount,
                   variance));
 
-          cases.add(
-              createCase(
-                  runId,
-                  candidate.getRecordId(),
-                  line.getId(),
-                  null,
-                  CaseType.AMOUNT_MISMATCH,
-                  calculateSeverity(variance),
-                  variance));
+          if (recordCase(
+              cases,
+              createdCaseKeys,
+              runId,
+              candidate.getRecordId(),
+              line.getId(),
+              null,
+              CaseType.AMOUNT_MISMATCH,
+              calculateSeverity(variance, CaseType.AMOUNT_MISMATCH),
+              variance)) {
+            discrepancyCount++;
+          }
         }
 
         matchedRecordIds.add(candidate.getRecordId());
@@ -281,6 +313,15 @@ public class ReconciliationEngine {
                       (line.getMerchantRef() != null
                           && (line.getMerchantRef().equalsIgnoreCase(c.getOrderId())
                               || line.getMerchantRef().equalsIgnoreCase(c.getPaymentId()))))
+              .filter(
+                  c -> {
+                    if (c.getOccurredAt() != null && line.getSettleDate() != null) {
+                      LocalDate candidateDate =
+                          c.getOccurredAt().atZone(java.time.ZoneOffset.UTC).toLocalDate();
+                      return ChronoUnit.DAYS.between(candidateDate, line.getSettleDate()) <= 3;
+                    }
+                    return true;
+                  })
               .findFirst();
 
       if (refMatch.isPresent() && refMatch.get().getGrossPaise() == line.getAmountPaise()) {
@@ -315,6 +356,15 @@ public class ReconciliationEngine {
                   c ->
                       Math.abs(Duration.between(c.getOccurredAt(), line.getTxnTime()).toMinutes())
                           <= 10)
+              .filter(
+                  c -> {
+                    if (c.getOccurredAt() != null && line.getSettleDate() != null) {
+                      LocalDate candidateDate =
+                          c.getOccurredAt().atZone(java.time.ZoneOffset.UTC).toLocalDate();
+                      return ChronoUnit.DAYS.between(candidateDate, line.getSettleDate()) <= 3;
+                    }
+                    return true;
+                  })
               .toList();
 
       if (timeCandidates.size() == 1) {
@@ -343,31 +393,35 @@ public class ReconciliationEngine {
     // Process residual unmatched items into Cases
     for (SettlementRecord c : candidates) {
       if (!matchedRecordIds.contains(c.getRecordId())) {
-        discrepancyCount++;
-        cases.add(
-            createCase(
-                runId,
-                c.getRecordId(),
-                null,
-                null,
-                CaseType.MISSING_IN_PROVIDER,
-                calculateSeverity(c.getGrossPaise()),
-                c.getGrossPaise()));
+        if (recordCase(
+            cases,
+            createdCaseKeys,
+            runId,
+            c.getRecordId(),
+            null,
+            null,
+            CaseType.MISSING_IN_PROVIDER,
+            calculateSeverity(c.getGrossPaise(), CaseType.MISSING_IN_PROVIDER),
+            c.getGrossPaise())) {
+          discrepancyCount++;
+        }
       }
     }
 
     for (ProviderLine l : providerLines) {
       if (!matchedLineKeys.contains(getLineKey(l))) {
-        discrepancyCount++;
-        cases.add(
-            createCase(
-                runId,
-                null,
-                l.getId(),
-                null,
-                CaseType.MISSING_IN_LEDGER,
-                calculateSeverity(l.getAmountPaise()),
-                l.getAmountPaise()));
+        if (recordCase(
+            cases,
+            createdCaseKeys,
+            runId,
+            null,
+            l.getId(),
+            null,
+            CaseType.MISSING_IN_LEDGER,
+            calculateSeverity(l.getAmountPaise(), CaseType.MISSING_IN_LEDGER),
+            l.getAmountPaise())) {
+          discrepancyCount++;
+        }
       }
     }
 
@@ -420,9 +474,21 @@ public class ReconciliationEngine {
         continue;
       }
 
-      // 3. Subset Sum Search
+      // 3. Subset Sum Search (first with zero tolerance)
       SubsetSumSolver.SolverResult solverResult =
-          SubsetSumSolver.solve(batchItems, deposit.getAmountPaise(), 0L, 5000L, 100000);
+          SubsetSumSolver.solve(batchItems, deposit.getAmountPaise(), 0L, 5000L, 50000);
+
+      // Fallback with reserve-holdback tolerance if 0 tolerance has NO_MATCH
+      if (solverResult.status() == SubsetSumSolver.SolverStatus.NO_MATCH
+          && reserveHoldbackTolerance > 0) {
+        log.info(
+            "Deposit {}: attempting subset search with reserve holdback tolerance {} paise",
+            deposit.getBankDepositId(),
+            reserveHoldbackTolerance);
+        solverResult =
+            SubsetSumSolver.solve(
+                batchItems, deposit.getAmountPaise(), reserveHoldbackTolerance, 5000L, 50000);
+      }
 
       if (solverResult.status() == SubsetSumSolver.SolverStatus.EXACT_MATCH) {
         deposit.setStatus("MATCHED");
@@ -441,26 +507,19 @@ public class ReconciliationEngine {
 
         // Stage 4: Posting matched deposit to ledger (F-L-06)
         postMatchedDepositToLedger(deposit, totalFeePaise);
-      } else if (solverResult.status() == SubsetSumSolver.SolverStatus.AMBIGUOUS_MATCH) {
-        cases.add(
-            createCase(
-                runId,
-                null,
-                null,
-                deposit.getBankDepositId(),
-                CaseType.DEPOSIT_UNMATCHED,
-                CaseSeverity.HIGH,
-                deposit.getAmountPaise()));
       } else {
-        cases.add(
-            createCase(
-                runId,
-                null,
-                null,
-                deposit.getBankDepositId(),
-                CaseType.DEPOSIT_UNMATCHED,
-                CaseSeverity.HIGH,
-                deposit.getAmountPaise()));
+        if (recordCase(
+            cases,
+            createdCaseKeys,
+            runId,
+            null,
+            null,
+            deposit.getBankDepositId(),
+            CaseType.DEPOSIT_UNMATCHED,
+            calculateSeverity(deposit.getAmountPaise(), CaseType.DEPOSIT_UNMATCHED),
+            deposit.getAmountPaise())) {
+          discrepancyCount++;
+        }
       }
     }
 
@@ -530,7 +589,9 @@ public class ReconciliationEngine {
         : (line.getLineNumber() + "_" + line.getProviderTxnId());
   }
 
-  private DiscrepancyCase createCase(
+  private boolean recordCase(
+      List<DiscrepancyCase> cases,
+      Set<String> createdCaseKeys,
       String runId,
       String recordId,
       Long providerLineId,
@@ -538,16 +599,42 @@ public class ReconciliationEngine {
       CaseType type,
       CaseSeverity severity,
       long variancePaise) {
+    String referenceId =
+        recordId != null
+            ? recordId
+            : (providerLineId != null ? String.valueOf(providerLineId) : depositId);
+
+    if (referenceId != null) {
+      String key = type.name() + ":" + referenceId;
+      if (createdCaseKeys.contains(key)
+          || caseRepository.existsByTypeAndReferenceId(type, referenceId)) {
+        log.debug(
+            "Case for type {} and reference {} already exists. Skipping duplicate case creation.",
+            type,
+            referenceId);
+        return false;
+      }
+      createdCaseKeys.add(key);
+    }
+
     String caseId = "CASE_" + UUID.randomUUID().toString().substring(0, 8);
     Instant slaDeadline = calculateSla(severity);
     DiscrepancyCase c =
         new DiscrepancyCase(
             caseId, runId, recordId, providerLineId, type, severity, variancePaise, slaDeadline);
     c.setDepositId(depositId);
-    return c;
+    c.setReferenceId(referenceId);
+    cases.add(c);
+    return true;
   }
 
-  private CaseSeverity calculateSeverity(long amountPaise) {
+  private CaseSeverity calculateSeverity(long amountPaise, CaseType type) {
+    if (type == CaseType.DEPOSIT_UNMATCHED || type == CaseType.DUPLICATE_PROVIDER_LINE) {
+      if (amountPaise >= 5_000_000L) {
+        return CaseSeverity.CRITICAL;
+      }
+      return CaseSeverity.HIGH;
+    }
     if (amountPaise >= 5_000_000L) {
       return CaseSeverity.CRITICAL;
     }

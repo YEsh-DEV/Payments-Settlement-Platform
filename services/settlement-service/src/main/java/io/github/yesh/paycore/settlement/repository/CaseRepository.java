@@ -28,6 +28,10 @@ public interface CaseRepository extends JpaRepository<DiscrepancyCase, UUID> {
   Optional<DiscrepancyCase> findByTypeAndRecordIdAndProviderLineId(
       CaseType type, String recordId, Long providerLineId);
 
+  Optional<DiscrepancyCase> findByTypeAndReferenceId(CaseType type, String referenceId);
+
+  boolean existsByTypeAndReferenceId(CaseType type, String referenceId);
+
   List<DiscrepancyCase> findByStatusNotInAndSlaDeadlineBefore(
       Collection<CaseStatus> terminalStatuses, Instant deadline);
 

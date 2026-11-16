@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# PayCore: Reconciliation Accuracy Benchmark Suite
+# Executes 20-seed synthetic fault injection reconciliation suite and regenerates docs/reconciliation-accuracy-report.md
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+echo "=== Running PayCore Reconciliation Accuracy Benchmark (20 Seeds) ==="
+./mvnw -B -pl services/settlement-service -am test \
+  -Dtest=ReconciliationAccuracyRunnerTest,GoldenFixturesReconciliationTest \
+  -Dsurefire.failIfNoSpecifiedTests=false
+
+echo "=== Successfully regenerated docs/reconciliation-accuracy-report.md ==="

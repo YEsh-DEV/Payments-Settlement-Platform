@@ -23,6 +23,10 @@ public class SubsetSumSolver {
       return new SolverResult(SolverStatus.NO_MATCH, Collections.emptyList());
     }
 
+    if (timeoutMs <= 0) {
+      return new SolverResult(SolverStatus.TIMEOUT, Collections.emptyList());
+    }
+
     long deadline = System.currentTimeMillis() + timeoutMs;
     List<List<BatchItem>> foundSolutions = new ArrayList<>();
 
@@ -30,10 +34,27 @@ public class SubsetSumSolver {
     int n = Math.min(items.size(), 40);
     List<BatchItem> sub = items.subList(0, n);
 
-    searchSubsets(
-        sub, 0, targetAmount, tolerance, new ArrayList<>(), foundSolutions, deadline, maxCap);
+    long totalAvailable = sub.stream().mapToLong(BatchItem::amountPaise).sum();
+    if (totalAvailable < targetAmount - tolerance) {
+      return new SolverResult(SolverStatus.NO_MATCH, Collections.emptyList());
+    }
 
-    if (System.currentTimeMillis() > deadline) {
+    int[] stateCount = new int[1];
+    boolean[] hitCap = new boolean[1];
+
+    searchSubsets(
+        sub,
+        0,
+        targetAmount,
+        tolerance,
+        new ArrayList<>(),
+        foundSolutions,
+        deadline,
+        maxCap,
+        stateCount,
+        hitCap);
+
+    if (System.currentTimeMillis() > deadline || hitCap[0]) {
       return new SolverResult(SolverStatus.TIMEOUT, foundSolutions);
     }
 
@@ -54,9 +75,16 @@ public class SubsetSumSolver {
       List<BatchItem> current,
       List<List<BatchItem>> solutions,
       long deadline,
-      int maxCap) {
+      int maxCap,
+      int[] stateCount,
+      boolean[] hitCap) {
     if (System.currentTimeMillis() > deadline || solutions.size() >= 2) {
       return; // Stop if timeout or already found more than 1 (ambiguous)
+    }
+
+    if (++stateCount[0] > maxCap) {
+      hitCap[0] = true;
+      return;
     }
 
     if (Math.abs(remainingTarget) <= tolerance && !current.isEmpty()) {
@@ -79,11 +107,22 @@ public class SubsetSumSolver {
         current,
         solutions,
         deadline,
-        maxCap);
+        maxCap,
+        stateCount,
+        hitCap);
     current.remove(current.size() - 1);
 
     // Exclude item
     searchSubsets(
-        items, index + 1, remainingTarget, tolerance, current, solutions, deadline, maxCap);
+        items,
+        index + 1,
+        remainingTarget,
+        tolerance,
+        current,
+        solutions,
+        deadline,
+        maxCap,
+        stateCount,
+        hitCap);
   }
 }

@@ -1,0 +1,4 @@
+provider_batch_id,provider_txn_id,txn_type,merchant_ref,gross_amount,fee_amount,net_amount,currency,txn_time,settle_date
+BATCH_GOLDEN_3,ptxn_duplicate_golden_999,CAPTURE,ORD_DUP_1,100000,2000,98000,INR,2026-11-16T12:00:00Z,2026-11-16
+BATCH_GOLDEN_3,ptxn_duplicate_golden_999,CAPTURE,ORD_DUP_2,100000,2000,98000,INR,2026-11-16T12:01:00Z,2026-11-16
+TRAILER,2,200000

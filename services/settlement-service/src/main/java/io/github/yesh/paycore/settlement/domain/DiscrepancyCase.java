@@ -27,6 +27,9 @@ public class DiscrepancyCase {
   @Column(name = "deposit_id", length = 64)
   private String depositId;
 
+  @Column(name = "reference_id", length = 128)
+  private String referenceId;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 32)
   private CaseType type;
@@ -116,6 +119,14 @@ public class DiscrepancyCase {
 
   public void setDepositId(String depositId) {
     this.depositId = depositId;
+  }
+
+  public String getReferenceId() {
+    return referenceId;
+  }
+
+  public void setReferenceId(String referenceId) {
+    this.referenceId = referenceId;
   }
 
   public CaseType getType() {
