@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/adjustments")
+@RequestMapping({"/v1/adjustments", "/adjustments"})
 public class AdjustmentController {
 
   private final AdjustmentService adjustmentService;

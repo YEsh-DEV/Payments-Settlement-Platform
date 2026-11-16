@@ -9,6 +9,10 @@ spring:
     username: ledger_user
     password: ledger_dev_password
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 80
+      minimum-idle: 10
+      connection-timeout: 30000
   jpa:
     hibernate:
       ddl-auto: validate

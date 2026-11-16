@@ -10,8 +10,9 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:ledger_dev_password}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
+      maximum-pool-size: 80
+      minimum-idle: 10
+      connection-timeout: 30000
   jpa:
     hibernate:
       ddl-auto: validate

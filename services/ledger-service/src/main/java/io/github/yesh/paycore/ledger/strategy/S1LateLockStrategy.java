@@ -12,6 +12,8 @@ import io.github.yesh.paycore.ledger.repository.AccountRepository;
 import io.github.yesh.paycore.ledger.repository.JournalRepository;
 import io.github.yesh.paycore.ledger.repository.LedgerEntryRepository;
 import io.github.yesh.paycore.ledger.repository.OutboxEventRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -31,6 +33,7 @@ public class S1LateLockStrategy implements PostingStrategy {
   private final LedgerEntryRepository ledgerEntryRepository;
   private final OutboxEventRepository outboxEventRepository;
   private final ObjectMapper objectMapper;
+  @PersistenceContext private EntityManager entityManager;
 
   public S1LateLockStrategy(
       AccountRepository accountRepository,
@@ -91,6 +94,11 @@ public class S1LateLockStrategy implements PostingStrategy {
     Set<UUID> accountIds =
         request.legs().stream().map(JournalLeg::accountId).collect(Collectors.toSet());
     List<Account> preloaded = accountRepository.findByIdIn(accountIds);
+    if (entityManager != null) {
+      for (Account a : preloaded) {
+        entityManager.detach(a);
+      }
+    }
     Map<UUID, Account> accountMap =
         preloaded.stream().collect(Collectors.toMap(Account::getId, a -> a));
 

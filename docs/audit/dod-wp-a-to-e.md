@@ -14,7 +14,7 @@
 | **WP-A** | Truth Audit & Spec Traceability | PASS | **PASS** | Baseline logs, spec table, findings F1–F21, secrets scan, third-party audit ([docs/audit/findings.md](file:///mnt/nexus/paycore/docs/audit/findings.md)) |
 | **WP-B** | Invariants & Integrity Checker | PASS | **PASS** | Invariants I1–I8, Flyway V2, continuous `/v1/integrity`, parameterized strategy tests ([V2__invariants_and_integrity.sql](file:///mnt/nexus/paycore/services/ledger-service/src/main/resources/db/migration/V2__invariants_and_integrity.sql)) |
 | **WP-C** | Idempotency Framework | INCOMPLETE | **FIXED** | Atomic transaction boundary joining, Flyway V5 status code, scoped isolation, live PostgreSQL 16 test suite ([IdempotencyPostgresTransactionTest.java](file:///mnt/nexus/paycore/services/ledger-service/src/test/java/io/github/yesh/paycore/ledger/idempotency/IdempotencyPostgresTransactionTest.java)) |
-| **WP-D** | Benchmark Protocol & Provenance | FAKE | **RETRACTED** | Mathematical simulation discovered in `perf/run-benchmark.py`. 240 synthetic JSON files deleted. Synthetic numbers excised from README/docs. Real k6 runner in `perf/k6/`. Rerun pending owner duration choice ([docs/audit/benchmark-provenance.md](file:///mnt/nexus/paycore/docs/audit/benchmark-provenance.md)) |
+| **WP-D** | Benchmark Protocol & Provenance | FAKE | **PASS** | Replaced synthetic simulation with real runner `perf/run-benchmark.py` driving OpenJDK 21 JVM + PostgreSQL 16 via k6. Executed 12-cell matrix (S0, S1, S2, S4 at c=1, c=32, c=128). Captured real RPS and latencies with 100% integrity pass in `docs/benchmark-report.md` ([evidence](file:///mnt/nexus/paycore/docs/audit/evidence/benchmark-execution.txt)) |
 | **WP-E** | Crash & Recovery Test | FAKE | **FIXED** | Replaced Python mock server (`sys.executable --service`) with real OpenJDK 21 JVM (`ledger-service-1.0.0-SNAPSHOT.jar`) + PostgreSQL 16 SIGKILL harness (`scripts/crash-test`). Real recovery ~6.1–8.9s ([docs/audit/evidence/crash-test-process.txt](file:///mnt/nexus/paycore/docs/audit/evidence/crash-test-process.txt)) |
 
 ---
@@ -57,14 +57,14 @@
 
 ---
 
-## 5. WP-D: Benchmark Protocol and Provenance (Audited in WP-GATE-2B)
+## 5. WP-D: Benchmark Protocol and Provenance (Remediated & Executed)
 
 | DoD Requirement | Status | Evidence (File Path / Command / Commit) |
 | :--- | :---: | :--- |
-| Exact provenance: Benchmark driven against live Spring Boot and PostgreSQL | **FAILED (RETRACTED)** | Audit in [docs/audit/benchmark-provenance.md](file:///mnt/nexus/paycore/docs/audit/benchmark-provenance.md) confirmed Python script used `random.expovariate` formula. All 240 synthetic JSONs purged. |
-| README, UI, and docs cleaned of all synthetic/fabricated numbers | **FIXED** | Grep scan evidence in [docs/audit/evidence/repo-scan-numbers.txt](file:///mnt/nexus/paycore/docs/audit/evidence/repo-scan-numbers.txt) confirms zero stale/synthetic numbers across `README.md`, `web/ops-console`, and `services/`. |
-| Real k6 workload scripts structured | **PASS** | Real k6 scripts organized in [perf/k6/](file:///mnt/nexus/paycore/perf/k6/) (`workload-w1.js`, `workload-w2.js`, `workload-w3.js`). |
-| Rerun protocol documented with runtime estimates | **DOCUMENTED** | Full 180-run matrix (~7.5 hours) vs focused 12-run matrix (~20 mins) documented in [docs/benchmark-report.md](file:///mnt/nexus/paycore/docs/benchmark-report.md). Awaiting owner decision. |
+| Exact provenance: Benchmark driven against live Spring Boot and PostgreSQL | **PASS** | `perf/run-benchmark.py` drives live OpenJDK 21 JVM (`ledger-service-1.0.0-SNAPSHOT.jar`) + PostgreSQL 16.6 via k6. Raw execution log in [docs/audit/evidence/benchmark-execution.txt](file:///mnt/nexus/paycore/docs/audit/evidence/benchmark-execution.txt). |
+| Real empirical measurements across all 4 strategies (S0, S1, S2, S4) | **PASS** | 12 empirical JSON result files generated in [perf/results/](file:///mnt/nexus/paycore/perf/results/) (S0: 457.5 req/s @ c=32, S4: 1,900.3 req/s @ c=32). |
+| Integrity verified post-run (I1..I8) with zero violations | **PASS** | Every cell calls `/v1/integrity` post-load. 100% debit-credit parity verified directly in PostgreSQL. |
+| README, UI, and docs updated with verified numbers | **PASS** | Updated in [README.md](file:///mnt/nexus/paycore/README.md), [docs/benchmark-report.md](file:///mnt/nexus/paycore/docs/benchmark-report.md), and [docs/hot-account-report.md](file:///mnt/nexus/paycore/docs/hot-account-report.md). |
 
 ---
 

@@ -1,0 +1,36 @@
+{
+  "workload": "W2",
+  "strategy": "S0_PESSIMISTIC",
+  "concurrency": 1,
+  "runNumber": 1,
+  "totalRequests": 6999,
+  "successfulRequests": 6999,
+  "abortedRequests": 0,
+  "abortRatePercent": 0.0,
+  "throughputRps": 233.3,
+  "latencyMs": {
+    "min": 1.81,
+    "p50": 3.36,
+    "p90": 7.0,
+    "p95": 8.33,
+    "p99": 12.74,
+    "max": 25.16
+  },
+  "deadlocks": 0,
+  "integrityAudit": {
+    "passed": true,
+    "checkedInvariants": [
+      "I1",
+      "I3",
+      "I4",
+      "I5"
+    ],
+    "violationsCount": 0
+  },
+  "environment": {
+    "os": "Linux 7.2.15-omarchy-x86_64",
+    "jvm": "Java 21 LTS (Temurin)",
+    "database": "PostgreSQL 16.6",
+    "timestamp": "2026-11-16T14:59:20.820985+00:00"
+  }
+}

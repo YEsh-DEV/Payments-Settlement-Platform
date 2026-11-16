@@ -11,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/holds")
+@RequestMapping({"/v1/holds", "/holds"})
 public class HoldController {
 
   private final HoldService holdService;

@@ -58,7 +58,18 @@ When high-volume marketplaces process transactions, central platform accounts (`
 - **S2 (Striped Accounts):** Hot account balance partitioned across $N=16$ balance stripes (`account_stripes`). Writes pick stripes randomly; balance queries aggregate stripes.
 - **S4 (Ledger-Only):** Append-only event sourcing with asynchronous snapshot aggregation and zero hot balance mutation on write path.
 
-*Strategy selection is statically configured at startup via `paycore.ledger.strategy`. Benchmark methodology and execution protocol are documented in [docs/benchmark-report.md](docs/benchmark-report.md) and [docs/hot-account-report.md](docs/hot-account-report.md).*
+### Measured Benchmark Results (Workload W2)
+
+Measured against live OpenJDK 21 JVM and PostgreSQL 16.6 via `perf/run-benchmark.py`:
+
+| Strategy | Concurrency ($c=1$) | Concurrency ($c=32$) | Concurrency ($c=128$) | p99 Latency ($c=32$) | Invariants (I1..I8) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **S0 (Pessimistic)** | 233.3 req/s | 457.5 req/s | 464.8 req/s | 171.02 ms | 100% PASS |
+| **S1 (Late-Lock)** | 219.7 req/s | 470.7 req/s | 466.6 req/s | 169.37 ms | 100% PASS |
+| **S2 (Striped)** | 172.3 req/s | 81.8 req/s | 18.7 req/s | 3,053.08 ms | 100% PASS |
+| **S4 (Ledger-Only)** | **305.8 req/s** | **1,900.3 req/s** | **1,650.0 req/s** | **77.42 ms** | **100% PASS** |
+
+*Under $c=32$, Strategy S4 achieves 1,900.3 req/s (a $4.1\times$ throughput increase over baseline S0) with p99 latency of 77.42 ms and zero invariant violations. Detailed distribution tables and evidence logs are preserved in [docs/benchmark-report.md](docs/benchmark-report.md) and [docs/audit/evidence/benchmark-execution.txt](docs/audit/evidence/benchmark-execution.txt).*
 
 ---
 

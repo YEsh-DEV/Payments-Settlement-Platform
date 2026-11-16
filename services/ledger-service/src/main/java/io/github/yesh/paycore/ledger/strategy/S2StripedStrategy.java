@@ -9,6 +9,8 @@ import io.github.yesh.paycore.ledger.dto.JournalLeg;
 import io.github.yesh.paycore.ledger.dto.JournalRequest;
 import io.github.yesh.paycore.ledger.dto.PostingResult;
 import io.github.yesh.paycore.ledger.repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -30,6 +32,7 @@ public class S2StripedStrategy implements PostingStrategy {
   private final LedgerEntryRepository ledgerEntryRepository;
   private final OutboxEventRepository outboxEventRepository;
   private final ObjectMapper objectMapper;
+  @PersistenceContext private EntityManager entityManager;
 
   public S2StripedStrategy(
       AccountRepository accountRepository,
@@ -90,6 +93,11 @@ public class S2StripedStrategy implements PostingStrategy {
     Set<UUID> accountIds =
         request.legs().stream().map(JournalLeg::accountId).collect(Collectors.toSet());
     List<Account> accounts = accountRepository.findByIdIn(accountIds);
+    if (entityManager != null) {
+      for (Account a : accounts) {
+        entityManager.detach(a);
+      }
+    }
     Map<UUID, Account> accountMap =
         accounts.stream().collect(Collectors.toMap(Account::getId, a -> a));
 

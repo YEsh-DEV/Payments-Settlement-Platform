@@ -15,6 +15,8 @@ import io.github.yesh.paycore.ledger.repository.OutboxEventRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,7 @@ public class PostingEngine {
   private final OutboxEventRepository outboxEventRepository;
   private final ObjectMapper objectMapper;
   private final MeterRegistry meterRegistry;
+  @PersistenceContext private EntityManager entityManager;
 
   public PostingEngine(
       AccountRepository accountRepository,
@@ -144,6 +147,12 @@ public class PostingEngine {
     if (accountsUnordered.size() != accountIds.size()) {
       throw new PayCoreException(
           HttpStatus.NOT_FOUND, "account_not_found", "One or more accounts do not exist");
+    }
+
+    if (entityManager != null) {
+      for (Account a : accountsUnordered) {
+        entityManager.detach(a);
+      }
     }
 
     Map<UUID, Account> preloadedMap =

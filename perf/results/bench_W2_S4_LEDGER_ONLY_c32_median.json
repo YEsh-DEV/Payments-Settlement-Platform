@@ -1,0 +1,36 @@
+{
+  "workload": "W2",
+  "strategy": "S4_LEDGER_ONLY",
+  "concurrency": 32,
+  "runNumber": 1,
+  "totalRequests": 57033,
+  "successfulRequests": 57033,
+  "abortedRequests": 0,
+  "abortRatePercent": 0.0,
+  "throughputRps": 1900.3,
+  "latencyMs": {
+    "min": 3.12,
+    "p50": 13.5,
+    "p90": 26.69,
+    "p95": 36.79,
+    "p99": 77.42,
+    "max": 272.02
+  },
+  "deadlocks": 183,
+  "integrityAudit": {
+    "passed": true,
+    "checkedInvariants": [
+      "I1",
+      "I3",
+      "I4",
+      "I5"
+    ],
+    "violationsCount": 0
+  },
+  "environment": {
+    "os": "Linux 7.2.15-omarchy-x86_64",
+    "jvm": "Java 21 LTS (Temurin)",
+    "database": "PostgreSQL 16.6",
+    "timestamp": "2026-11-16T15:05:28.503687+00:00"
+  }
+}

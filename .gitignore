@@ -48,6 +48,11 @@ replay_pid*
 # OS Specific
 .DS_Store
 Thumbs.db
+
+# Perf Local Binaries
+perf/bin/
+__pycache__/
+*.pyc
 ehthumbs.db
 
 # Testcontainers & Benchmarks

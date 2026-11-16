@@ -1,0 +1,35 @@
+PayCore Real Benchmark Execution Evidence Log
+==============================================
+Started: 2026-11-16T14:58:39.790032+00:00
+Workload: W2 (70% captures, 20% refunds, 10% payouts)
+Strategies: ['S0_PESSIMISTIC', 'S1_LATE_LOCK', 'S2_STRIPED', 'S4_LEDGER_ONLY']
+Concurrency Levels: [1, 32, 128]
+Cell Duration: 30s
+
+Strategy: S0_PESSIMISTIC
+  JVM PID: 362743
+  Command: /home/yesh/.local/share/mise/installs/java/21/bin/java -Dpaycore.ledger.strategy=S0_PESSIMISTIC -jar /mnt/nexus/paycore/services/ledger-service/target/ledger-service-1.0.0-SNAPSHOT.jar --spring.profiles.active=test --paycore.ledger.strategy=S0_PESSIMISTIC --spring.datasource.hikari.maximum-pool-size=80
+  [1/12] W2 | S0_PESSIMISTIC   | c=  1 ->   233.3 req/s | p50= 3.36ms | p95= 8.33ms | p99=12.74ms | aborts=0.0% | Integrity: PASS
+  [2/12] W2 | S0_PESSIMISTIC   | c= 32 ->   457.5 req/s | p50=70.62ms | p95=138.90ms | p99=171.02ms | aborts=0.0% | Integrity: PASS
+  [3/12] W2 | S0_PESSIMISTIC   | c=128 ->   464.8 req/s | p50=271.05ms | p95=485.72ms | p99=533.69ms | aborts=0.0% | Integrity: PASS
+Strategy: S1_LATE_LOCK
+  JVM PID: 363264
+  Command: /home/yesh/.local/share/mise/installs/java/21/bin/java -Dpaycore.ledger.strategy=S1_LATE_LOCK -jar /mnt/nexus/paycore/services/ledger-service/target/ledger-service-1.0.0-SNAPSHOT.jar --spring.profiles.active=test --paycore.ledger.strategy=S1_LATE_LOCK --spring.datasource.hikari.maximum-pool-size=80
+  [4/12] W2 | S1_LATE_LOCK     | c=  1 ->   219.7 req/s | p50= 3.67ms | p95= 8.71ms | p99=13.18ms | aborts=0.0% | Integrity: PASS
+  [5/12] W2 | S1_LATE_LOCK     | c= 32 ->   470.7 req/s | p50=74.78ms | p95=133.63ms | p99=169.37ms | aborts=0.0% | Integrity: PASS
+  [6/12] W2 | S1_LATE_LOCK     | c=128 ->   466.6 req/s | p50=261.82ms | p95=490.37ms | p99=558.45ms | aborts=0.0% | Integrity: PASS
+Strategy: S2_STRIPED
+  JVM PID: 363805
+  Command: /home/yesh/.local/share/mise/installs/java/21/bin/java -Dpaycore.ledger.strategy=S2_STRIPED -jar /mnt/nexus/paycore/services/ledger-service/target/ledger-service-1.0.0-SNAPSHOT.jar --spring.profiles.active=test --paycore.ledger.strategy=S2_STRIPED --spring.datasource.hikari.maximum-pool-size=80
+  [7/12] W2 | S2_STRIPED       | c=  1 ->   172.3 req/s | p50= 5.14ms | p95=10.30ms | p99=15.25ms | aborts=0.0% | Integrity: PASS
+  [8/12] W2 | S2_STRIPED       | c= 32 ->    81.8 req/s | p50=30.42ms | p95=2003.32ms | p99=3053.08ms | aborts=2.98% | Integrity: PASS
+  [9/12] W2 | S2_STRIPED       | c=128 ->    18.7 req/s | p50=5023.51ms | p95=17340.90ms | p99=24561.93ms | aborts=16.54% | Integrity: PASS
+Strategy: S4_LEDGER_ONLY
+  JVM PID: 364432
+  Command: /home/yesh/.local/share/mise/installs/java/21/bin/java -Dpaycore.ledger.strategy=S4_LEDGER_ONLY -jar /mnt/nexus/paycore/services/ledger-service/target/ledger-service-1.0.0-SNAPSHOT.jar --spring.profiles.active=test --paycore.ledger.strategy=S4_LEDGER_ONLY --spring.datasource.hikari.maximum-pool-size=80
+  [10/12] W2 | S4_LEDGER_ONLY   | c=  1 ->   305.8 req/s | p50= 2.42ms | p95= 6.67ms | p99=11.83ms | aborts=0.0% | Integrity: PASS
+  [11/12] W2 | S4_LEDGER_ONLY   | c= 32 ->  1900.3 req/s | p50=13.50ms | p95=36.79ms | p99=77.42ms | aborts=0.0% | Integrity: PASS
+  [12/12] W2 | S4_LEDGER_ONLY   | c=128 ->  1650.0 req/s | p50=46.79ms | p95=268.34ms | p99=619.38ms | aborts=0.0% | Integrity: PASS
+
+Completed: 2026-11-16T15:06:09.204127+00:00
+Total cells completed: 12 / 12
