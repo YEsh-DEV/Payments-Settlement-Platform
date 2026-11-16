@@ -80,20 +80,32 @@ public class AuthControllerTest {
   }
 
   @Test
-  @DisplayName("F-I-02: Successful refresh returns fresh tokens")
+  @DisplayName(
+      "F-I-02: Successful refresh returns fresh tokens when X-Requested-With header is present")
   void testSuccessfulRefresh() {
     User user = new User("bob", "encoded_pwd", Set.of("OPERATOR"), "seller_100");
     when(authService.rotateRefreshToken("valid_cookie_token"))
         .thenReturn(new AuthService.LoginResult("new_access_jwt", "new_refresh_token", user));
 
     MockHttpServletResponse response = new MockHttpServletResponse();
-    ResponseEntity<AuthResponse> entity = controller.refresh("valid_cookie_token", response);
+    ResponseEntity<AuthResponse> entity =
+        controller.refresh("valid_cookie_token", "XMLHttpRequest", response);
 
     assertThat(entity.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(entity.getBody()).isNotNull();
     assertThat(entity.getBody().accessToken()).isEqualTo("new_access_jwt");
     assertThat(response.getHeader("Set-Cookie"))
-        .contains("paycore_refresh_token=new_refresh_token");
+        .contains("paycore_refresh_token=new_refresh_token")
+        .contains("Path=/auth");
+  }
+
+  @Test
+  @DisplayName("F-I-02: Refresh request without X-Requested-With header fails with 400")
+  void testRefreshMissingCsrfHeaderThrows() {
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    assertThatThrownBy(() -> controller.refresh("valid_cookie_token", null, response))
+        .isInstanceOf(PayCoreException.class)
+        .hasMessageContaining("X-Requested-With header required");
   }
 
   @Test

@@ -73,6 +73,26 @@ public class BaseExceptionHandler {
         .body(details);
   }
 
+  @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+  public ResponseEntity<ProblemDetails> handleMaxUploadSizeExceededException(
+      org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+    String requestId = RequestIdFilter.getCurrentRequestId();
+    ProblemDetails details =
+        ProblemDetails.builder()
+            .type("https://api.paycore.dev/errors/payload-too-large")
+            .title("Payload Too Large")
+            .status(HttpStatus.PAYLOAD_TOO_LARGE.value())
+            .code("payload_too_large")
+            .detail("Upload file exceeds the maximum permitted limit of 20 MB")
+            .requestId(requestId)
+            .timestamp(Instant.now())
+            .build();
+
+    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+        .body(details);
+  }
+
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ProblemDetails> handleGenericException(Exception ex) {
     String requestId = RequestIdFilter.getCurrentRequestId();

@@ -68,7 +68,14 @@ public class AuthController {
   @PostMapping("/auth/refresh")
   public ResponseEntity<AuthResponse> refresh(
       @CookieValue(name = REFRESH_COOKIE_NAME, required = false) String rawRefreshToken,
+      @RequestHeader(name = "X-Requested-With", required = false) String xRequestedWith,
       HttpServletResponse response) {
+    if (xRequestedWith == null || xRequestedWith.isBlank()) {
+      throw new io.github.yesh.paycore.common.error.PayCoreException(
+          org.springframework.http.HttpStatus.BAD_REQUEST,
+          "csrf_protection_header_missing",
+          "X-Requested-With header required for refresh token rotation");
+    }
     AuthService.LoginResult result = authService.rotateRefreshToken(rawRefreshToken);
     setRefreshCookie(response, result.rawRefreshToken(), refreshTokenValiditySeconds);
 
@@ -145,7 +152,7 @@ public class AuthController {
         ResponseCookie.from(REFRESH_COOKIE_NAME, token)
             .httpOnly(true)
             .secure(cookieSecure)
-            .path("/")
+            .path("/auth")
             .maxAge(Duration.ofSeconds(maxAgeSeconds))
             .sameSite("Strict")
             .build();
@@ -157,7 +164,7 @@ public class AuthController {
         ResponseCookie.from(REFRESH_COOKIE_NAME, "")
             .httpOnly(true)
             .secure(cookieSecure)
-            .path("/")
+            .path("/auth")
             .maxAge(Duration.ZERO)
             .sameSite("Strict")
             .build();

@@ -95,6 +95,16 @@ if [ -z "${ANALYST_TOKEN}" ]; then
 fi
 log_pass "Analyst authenticated successfully."
 
+log_info "Authenticating settlement service M2M client..."
+SVC_LOGIN_RESP=$(curl -s -f -X POST "${AUTH_BASE}/service-token" \
+    -H "Content-Type: application/json" \
+    -d '{"clientId":"settlement-service","clientSecret":"settlement_dev_secret"}')
+SERVICE_TOKEN=$(echo "${SVC_LOGIN_RESP}" | jq -r '.accessToken // empty')
+if [ -z "${SERVICE_TOKEN}" ]; then
+    log_fail "Failed to obtain service token for settlement-service: ${SVC_LOGIN_RESP}"
+fi
+log_pass "Settlement service authenticated (M2M SERVICE role)."
+
 log_info "Verifying token via GET /auth/me..."
 ME_RESP=$(curl -s -f -X GET "${AUTH_BASE}/me" \
     -H "Authorization: Bearer ${ADMIN_TOKEN}")
@@ -321,7 +331,7 @@ log_step "11" "Provider Deposit Recording"
 # ==============================================================================
 log_info "Recording provider net settlement deposit..."
 DEP_RESP=$(curl -s -f -X POST "${LEDGER_BASE}/provider-deposits" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+    -H "Authorization: Bearer ${SERVICE_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "{\"depositId\":\"${DEP_1}\",\"netAmount\":294950,\"feeAmount\":5050,\"reference\":\"PRV_DEP_${RUN_SUFFIX}\",\"valueDate\":\"$(date -u +"%Y-%m-%d")\"}")
 

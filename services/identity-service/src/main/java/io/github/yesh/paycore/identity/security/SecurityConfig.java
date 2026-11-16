@@ -1,9 +1,11 @@
 package io.github.yesh.paycore.identity.security;
 
+import io.github.yesh.paycore.common.web.RedisRateLimiterFilter;
 import io.github.yesh.paycore.common.web.RequestIdFilter;
 import io.github.yesh.paycore.common.web.SecurityHeadersFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -20,11 +22,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
+  private final StringRedisTemplate redisTemplate;
   private final RequestIdFilter requestIdFilter = new RequestIdFilter();
   private final SecurityHeadersFilter securityHeadersFilter = new SecurityHeadersFilter();
 
-  public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+  public SecurityConfig(
+      JwtAuthenticationFilter jwtAuthenticationFilter,
+      org.springframework.beans.factory.ObjectProvider<StringRedisTemplate> redisTemplateProvider) {
     this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    this.redisTemplate = redisTemplateProvider.getIfAvailable();
   }
 
   @Bean
@@ -34,7 +40,7 @@ public class SecurityConfig {
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    return http.csrf(AbstractHttpConfigurer::disable)
+    http.csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
@@ -55,8 +61,15 @@ public class SecurityConfig {
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(requestIdFilter, UsernamePasswordAuthenticationFilter.class)
-        .addFilterAfter(securityHeadersFilter, RequestIdFilter.class)
-        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-        .build();
+        .addFilterAfter(securityHeadersFilter, RequestIdFilter.class);
+
+    if (redisTemplate != null) {
+      http.addFilterBefore(
+          new RedisRateLimiterFilter(redisTemplate), UsernamePasswordAuthenticationFilter.class);
+    }
+
+    http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+    return http.build();
   }
 }

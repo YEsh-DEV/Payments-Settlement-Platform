@@ -1,11 +1,10 @@
 package io.github.yesh.paycore.settlement.exception;
 
+import io.github.yesh.paycore.common.error.PayCoreException;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
-public class MakerCheckerViolationException extends RuntimeException {
+public class MakerCheckerViolationException extends PayCoreException {
   public MakerCheckerViolationException(String message) {
-    super(message);
+    super(HttpStatus.UNPROCESSABLE_ENTITY, "maker_checker_violation", message);
   }
 }

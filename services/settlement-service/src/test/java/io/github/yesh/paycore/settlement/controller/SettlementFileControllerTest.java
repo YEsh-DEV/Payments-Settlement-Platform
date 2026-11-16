@@ -5,7 +5,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.github.yesh.paycore.common.error.BaseExceptionHandler;
 import io.github.yesh.paycore.settlement.domain.ProviderFileStatus;
 import io.github.yesh.paycore.settlement.dto.FileUploadResponse;
 import io.github.yesh.paycore.settlement.service.StreamingFileParser;
@@ -23,6 +27,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 public class SettlementFileControllerTest {
 
@@ -81,5 +88,28 @@ public class SettlementFileControllerTest {
     ResponseEntity<Page<FileUploadResponse>> response = controller.listFiles(PageRequest.of(0, 10));
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody().getContent()).containsExactly(f1);
+  }
+
+  @Test
+  @DisplayName("Provider file upload exceeding 20 MB cap is rejected with 413 Payload Too Large")
+  void testUploadExceedingCapReturns413() throws Exception {
+    MockMvc mockMvc =
+        MockMvcBuilders.standaloneSetup(controller)
+            .setControllerAdvice(new BaseExceptionHandler())
+            .build();
+
+    when(streamingFileParser.parseAndIngest(any(), any(), any()))
+        .thenThrow(new MaxUploadSizeExceededException(20 * 1024 * 1024));
+
+    MockMultipartFile largeFile =
+        new MockMultipartFile("file", "large.csv", "text/csv", new byte[100]);
+
+    mockMvc
+        .perform(multipart("/v1/files/upload").file(largeFile))
+        .andExpect(status().isPayloadTooLarge())
+        .andExpect(jsonPath("$.status").value(413))
+        .andExpect(jsonPath("$.code").value("payload_too_large"))
+        .andExpect(
+            jsonPath("$.detail").value("Upload file exceeds the maximum permitted limit of 20 MB"));
   }
 }
