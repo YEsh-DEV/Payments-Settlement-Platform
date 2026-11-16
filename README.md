@@ -20,7 +20,7 @@ flowchart TD
     Ingress -->|/v1/settlement/**| Settlement["Settlement Service :8083\n(Cutoff, 4-Stage Recon)"]
     Ingress -->|UI| Console["Ops Console :3000\n(React 19 + Vite)"]
 
-    Ledger -->|Transactional Outbox| Kafka["Kafka KRaft Cluster\n(ledger.events)"]
+    Ledger -->|Transactional Outbox| Kafka["Kafka KRaft Cluster\n(ledger.domain-events)"]
     Kafka -->|CDC Event Stream| Settlement
 
     Identity --> DB_Id[("PostgreSQL\nidentity_db")]
