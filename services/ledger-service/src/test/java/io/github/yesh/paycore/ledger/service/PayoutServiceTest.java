@@ -174,4 +174,46 @@ class PayoutServiceTest {
     assertThat(response.status()).isEqualTo("FAILED");
     verify(postingStrategy).post(any());
   }
+
+  @Test
+  @DisplayName("Illegal payout state transitions return 409 invalid_state_transition")
+  void testIllegalPayoutTransitionsReturn409() {
+    Payout failedPayout =
+        new Payout("payout_f", "sel_1", 50000L, PayoutStatus.FAILED, null, UUID.randomUUID());
+    when(payoutRepository.findByPayoutId("payout_f")).thenReturn(Optional.of(failedPayout));
+
+    assertThatThrownBy(() -> payoutService.confirmPayout("payout_f", "batch-1"))
+        .isInstanceOf(PayCoreException.class)
+        .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT)
+        .hasFieldOrPropertyWithValue("code", "invalid_state_transition");
+
+    Payout paidPayout =
+        new Payout("payout_p", "sel_1", 50000L, PayoutStatus.PAID, "batch-1", UUID.randomUUID());
+    when(payoutRepository.findByPayoutId("payout_p")).thenReturn(Optional.of(paidPayout));
+
+    assertThatThrownBy(() -> payoutService.failPayout("payout_p", "Too late"))
+        .isInstanceOf(PayCoreException.class)
+        .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT)
+        .hasFieldOrPropertyWithValue("code", "invalid_state_transition");
+  }
+
+  @Test
+  @DisplayName("Re-confirming or re-failing already terminal payout is idempotent")
+  void testTerminalPayoutCallsAreIdempotent() {
+    Payout paidPayout =
+        new Payout("payout_p2", "sel_1", 50000L, PayoutStatus.PAID, "batch-1", UUID.randomUUID());
+    when(payoutRepository.findByPayoutId("payout_p2")).thenReturn(Optional.of(paidPayout));
+
+    PayoutResponse res1 = payoutService.confirmPayout("payout_p2", "batch-1");
+    assertThat(res1.status()).isEqualTo("PAID");
+
+    Payout failedPayout =
+        new Payout("payout_f2", "sel_1", 50000L, PayoutStatus.FAILED, null, UUID.randomUUID());
+    when(payoutRepository.findByPayoutId("payout_f2")).thenReturn(Optional.of(failedPayout));
+
+    PayoutResponse res2 = payoutService.failPayout("payout_f2", "Reason");
+    assertThat(res2.status()).isEqualTo("FAILED");
+
+    verify(postingStrategy, never()).post(any());
+  }
 }

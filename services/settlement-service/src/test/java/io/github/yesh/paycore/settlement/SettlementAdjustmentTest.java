@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import io.github.yesh.paycore.settlement.client.LedgerClient;
 import io.github.yesh.paycore.settlement.domain.*;
 import io.github.yesh.paycore.settlement.dto.AdjustmentResponse;
 import io.github.yesh.paycore.settlement.dto.ProposeAdjustmentRequest;
@@ -14,7 +15,10 @@ import io.github.yesh.paycore.settlement.repository.CaseNoteRepository;
 import io.github.yesh.paycore.settlement.repository.CaseRepository;
 import io.github.yesh.paycore.settlement.service.AdjustmentService;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +28,7 @@ class SettlementAdjustmentTest {
   private AdjustmentRepository adjustmentRepo;
   private CaseRepository caseRepo;
   private CaseNoteRepository noteRepo;
+  private LedgerClient ledgerClient;
   private AdjustmentService adjustmentService;
 
   @BeforeEach
@@ -31,7 +36,8 @@ class SettlementAdjustmentTest {
     adjustmentRepo = mock(AdjustmentRepository.class);
     caseRepo = mock(CaseRepository.class);
     noteRepo = mock(CaseNoteRepository.class);
-    adjustmentService = new AdjustmentService(adjustmentRepo, caseRepo, noteRepo);
+    ledgerClient = mock(LedgerClient.class);
+    adjustmentService = new AdjustmentService(adjustmentRepo, caseRepo, noteRepo, ledgerClient);
   }
 
   @Test
@@ -90,7 +96,7 @@ class SettlementAdjustmentTest {
   }
 
   @Test
-  @DisplayName("Maker-Checker: Should approve and resolve case when approver differs")
+  @DisplayName("Maker-Checker: Should approve, post to ledger, and resolve case when approver differs")
   void testMakerCheckerApproval() {
     AdjustmentRecord adj =
         new AdjustmentRecord(
@@ -118,6 +124,8 @@ class SettlementAdjustmentTest {
     when(adjustmentRepo.findByAdjustmentId("ADJ_2")).thenReturn(Optional.of(adj));
     when(caseRepo.findByCaseId("CASE_2")).thenReturn(Optional.of(c));
     when(adjustmentRepo.save(any(AdjustmentRecord.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(ledgerClient.postAdjustment(any(), any(), any(), anyLong(), any(), any()))
+        .thenReturn(Map.of("journalId", UUID.randomUUID().toString()));
 
     // Admin Bob approves Alice's proposed adjustment
     AdjustmentResponse response = adjustmentService.approveAdjustment("ADJ_2", "admin_bob");
@@ -128,7 +136,58 @@ class SettlementAdjustmentTest {
     assertThat(c.getApprovedBy()).isEqualTo("admin_bob");
     assertThat(c.getResolvedAt()).isNotNull();
 
+    verify(ledgerClient).postAdjustment(eq("ADJ_2"), eq("PROVIDER_FEE_EXPENSE"), eq("PROVIDER_RECEIVABLE"), eq(500L), eq("CASE_2"), any());
     verify(caseRepo).save(c);
-    verify(noteRepo).save(any());
+  }
+
+  @Test
+  @DisplayName("Adjustment ledger call failure: stays APPROVED and scheduled retry posts it later")
+  void testApprovalFailureRetainsApprovedStatusAndRetryPosts() {
+    AdjustmentRecord adj =
+        new AdjustmentRecord(
+            "ADJ_FAIL",
+            "CASE_FAIL",
+            "WRITE_OFF",
+            "WRITE_OFF_EXPENSE",
+            "PROVIDER_RECEIVABLE",
+            1200L,
+            "analyst_charlie");
+
+    DiscrepancyCase c =
+        new DiscrepancyCase(
+            "CASE_FAIL",
+            "RUN_1",
+            "REC_F",
+            10L,
+            CaseType.MISSING_IN_PROVIDER,
+            CaseSeverity.HIGH,
+            1200L,
+            Instant.now().plusSeconds(3600));
+    c.setStatus(CaseStatus.IN_REVIEW);
+    c.setProposedBy("analyst_charlie");
+
+    when(adjustmentRepo.findByAdjustmentId("ADJ_FAIL")).thenReturn(Optional.of(adj));
+    when(caseRepo.findByCaseId("CASE_FAIL")).thenReturn(Optional.of(c));
+    when(adjustmentRepo.save(any(AdjustmentRecord.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    // Ledger initially down on first call, returns journalId on retry
+    when(ledgerClient.postAdjustment(any(), any(), any(), anyLong(), any(), any()))
+        .thenThrow(new RuntimeException("Ledger 503 unavailable"))
+        .thenReturn(Map.of("journalId", UUID.randomUUID().toString()));
+
+    AdjustmentResponse response = adjustmentService.approveAdjustment("ADJ_FAIL", "admin_bob");
+
+    // Must stay APPROVED (not POSTED) so it's not marked done prematurely
+    assertThat(response.status()).isEqualTo("APPROVED");
+    assertThat(adj.getStatus()).isEqualTo("APPROVED");
+    assertThat(c.getStatus()).isEqualTo(CaseStatus.IN_REVIEW);
+
+    // Later: Scheduled retry job runs when ledger is back online
+    when(adjustmentRepo.findByStatus("APPROVED")).thenReturn(List.of(adj));
+
+    int retriedCount = adjustmentService.retryApprovedAdjustments();
+    assertThat(retriedCount).isEqualTo(1);
+    assertThat(adj.getStatus()).isEqualTo("POSTED");
+    assertThat(c.getStatus()).isEqualTo(CaseStatus.WRITTEN_OFF);
   }
 }

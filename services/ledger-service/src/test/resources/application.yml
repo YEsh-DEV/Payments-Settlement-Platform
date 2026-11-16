@@ -29,6 +29,7 @@ spring:
 
 paycore:
   security:
+    enabled: false
     jwks-uri: http://localhost:8081/.well-known/jwks.json
   ledger:
     strategy: S0_PESSIMISTIC

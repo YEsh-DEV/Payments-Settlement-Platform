@@ -6,6 +6,7 @@ import io.github.yesh.paycore.settlement.dto.BatchResponse;
 import io.github.yesh.paycore.settlement.service.BatchCutoffService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +24,25 @@ public class BatchController {
   public ResponseEntity<BatchResponse> runCutoff(
       @RequestBody(required = false) BatchCutoffRequest request) {
     BatchResponse response = batchCutoffService.runCutoff(request);
+    return ResponseEntity.ok(response);
+  }
+
+  @PostMapping("/{batchId}/send-payout-file")
+  public ResponseEntity<String> sendPayoutFile(@PathVariable String batchId) {
+    String csv = batchCutoffService.sendPayoutFile(batchId);
+    return ResponseEntity.ok().contentType(MediaType.TEXT_PLAIN).body(csv);
+  }
+
+  @PostMapping("/{batchId}/process-bank-results")
+  public ResponseEntity<BatchResponse> processBankResults(
+      @PathVariable String batchId, @RequestBody String bankResultCsv) {
+    BatchResponse response = batchCutoffService.processBankResults(batchId, bankResultCsv);
+    return ResponseEntity.ok(response);
+  }
+
+  @PostMapping("/{batchId}/resume")
+  public ResponseEntity<BatchResponse> resumeBatch(@PathVariable String batchId) {
+    BatchResponse response = batchCutoffService.resumeBatch(batchId);
     return ResponseEntity.ok(response);
   }
 

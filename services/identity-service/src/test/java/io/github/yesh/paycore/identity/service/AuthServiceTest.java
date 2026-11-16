@@ -194,10 +194,10 @@ class AuthServiceTest {
   @Test
   @DisplayName("Service client authentication validates client_id and secret_hash")
   void testServiceClientAuth() {
-    String clientId = "settlement-engine";
-    String secret = "super-secret-m2m-key";
+    String clientId = "settlement-service";
+    String secret = "settlement_dev_secret";
     ServiceClient client =
-        new ServiceClient(clientId, passwordEncoder.encode(secret), Set.of("SETTLEMENT_SERVICE"));
+        new ServiceClient(clientId, passwordEncoder.encode(secret), Set.of("SERVICE"));
 
     when(serviceClientRepository.findByClientId(clientId)).thenReturn(Optional.of(client));
 
@@ -205,6 +205,8 @@ class AuthServiceTest {
         authService.authenticateServiceClient(clientId, secret);
     assertThat(result.token()).isNotBlank();
     assertThat(result.jti()).startsWith("svc_");
+    assertThat(Duration.between(Instant.now(), result.expiresAt()).toSeconds())
+        .isBetween(590L, 610L); // ~10 minutes
 
     assertThatThrownBy(() -> authService.authenticateServiceClient(clientId, "wrongSecret"))
         .isInstanceOf(PayCoreException.class)

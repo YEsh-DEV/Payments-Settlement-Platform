@@ -1,11 +1,10 @@
 package io.github.yesh.paycore.settlement.exception;
 
+import io.github.yesh.paycore.common.error.PayCoreException;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.CONFLICT)
-public class InvalidBatchStateException extends RuntimeException {
+public class InvalidBatchStateException extends PayCoreException {
   public InvalidBatchStateException(String message) {
-    super(message);
+    super(HttpStatus.CONFLICT, "invalid_state_transition", message);
   }
 }

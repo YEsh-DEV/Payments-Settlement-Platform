@@ -34,6 +34,11 @@ public class ReconciliationEngine {
   private final SimulationManifestRepository manifestRepository;
   private final ObjectMapper objectMapper;
   private final MeterRegistry meterRegistry;
+  @Autowired(required = false) private io.github.yesh.paycore.settlement.client.LedgerClient ledgerClient;
+
+  public void setLedgerClient(io.github.yesh.paycore.settlement.client.LedgerClient ledgerClient) {
+    this.ledgerClient = ledgerClient;
+  }
 
   public ReconciliationEngine(
       ReconciliationRunRepository runRepository,
@@ -391,6 +396,7 @@ public class ReconciliationEngine {
         b.setStatus(BatchStatus.RECONCILED);
         depositRepository.save(deposit);
         batchRepository.save(b);
+        postMatchedDepositToLedger(deposit, b.getTotalFeePaise());
         continue;
       }
 
@@ -410,6 +416,7 @@ public class ReconciliationEngine {
         b.setStatus(BatchStatus.RECONCILED);
         depositRepository.save(deposit);
         batchRepository.save(b);
+        postMatchedDepositToLedger(deposit, b.getTotalFeePaise());
         continue;
       }
 
@@ -420,16 +427,20 @@ public class ReconciliationEngine {
       if (solverResult.status() == SubsetSumSolver.SolverStatus.EXACT_MATCH) {
         deposit.setStatus("MATCHED");
         List<SubsetSumSolver.BatchItem> matchedSubset = solverResult.solutions().get(0);
+        long totalFeePaise = 0L;
         for (SubsetSumSolver.BatchItem item : matchedSubset) {
-          batchRepository
-              .findByBatchId(item.batchId())
-              .ifPresent(
-                  b -> {
-                    b.setStatus(BatchStatus.RECONCILED);
-                    batchRepository.save(b);
-                  });
+          java.util.Optional<Batch> optB = batchRepository.findByBatchId(item.batchId());
+          if (optB.isPresent()) {
+            Batch b = optB.get();
+            b.setStatus(BatchStatus.RECONCILED);
+            batchRepository.save(b);
+            totalFeePaise += b.getTotalFeePaise();
+          }
         }
         depositRepository.save(deposit);
+
+        // Stage 4: Posting matched deposit to ledger (F-L-06)
+        postMatchedDepositToLedger(deposit, totalFeePaise);
       } else if (solverResult.status() == SubsetSumSolver.SolverStatus.AMBIGUOUS_MATCH) {
         cases.add(
             createCase(
@@ -569,6 +580,28 @@ public class ReconciliationEngine {
       return objectMapper.writeValueAsString(map);
     } catch (Exception e) {
       return "{}";
+    }
+  }
+
+  private void postMatchedDepositToLedger(BankDeposit deposit, long totalFeePaise) {
+    if (ledgerClient != null) {
+      try {
+        String valDate =
+            deposit.getValueDate() != null
+                ? deposit.getValueDate().toString()
+                : java.time.LocalDate.now().toString();
+        ledgerClient.postProviderDeposit(
+            deposit.getBankDepositId(),
+            deposit.getAmountPaise(),
+            totalFeePaise,
+            deposit.getReference(),
+            valDate);
+      } catch (Exception ex) {
+        log.error(
+            "Failed to post provider deposit {} to ledger: {}",
+            deposit.getBankDepositId(),
+            ex.getMessage());
+      }
     }
   }
 }

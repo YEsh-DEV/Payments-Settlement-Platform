@@ -32,6 +32,9 @@ public class OutboxEvent {
   @Column(name = "published_at")
   private Instant publishedAt;
 
+  @Column(name = "claimed_at")
+  private Instant claimedAt;
+
   public OutboxEvent() {}
 
   public OutboxEvent(String aggregateType, String aggregateId, String eventType, String payload) {
@@ -72,5 +75,13 @@ public class OutboxEvent {
 
   public void setPublishedAt(Instant publishedAt) {
     this.publishedAt = publishedAt;
+  }
+
+  public Instant getClaimedAt() {
+    return claimedAt;
+  }
+
+  public void setClaimedAt(Instant claimedAt) {
+    this.claimedAt = claimedAt;
   }
 }

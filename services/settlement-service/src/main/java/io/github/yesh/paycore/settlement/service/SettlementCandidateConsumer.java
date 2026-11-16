@@ -74,7 +74,7 @@ public class SettlementCandidateConsumer {
   }
 
   @KafkaListener(
-      topics = "${paycore.settlement.kafka-topic:paycore.ledger.events}",
+      topics = "${paycore.settlement.kafka-topic:ledger.domain-events}",
       groupId = "${spring.kafka.consumer.group-id:settlement-group}",
       autoStartup = "${paycore.settlement.kafka-enabled:false}")
   @Transactional

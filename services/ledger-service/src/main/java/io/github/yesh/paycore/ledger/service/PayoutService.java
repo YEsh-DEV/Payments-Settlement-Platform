@@ -158,6 +158,13 @@ public class PayoutService {
       return toResponse(payout);
     }
 
+    if (payout.getStatus() == PayoutStatus.FAILED) {
+      throw new PayCoreException(
+          HttpStatus.CONFLICT,
+          "invalid_state_transition",
+          "Cannot confirm payout " + payoutId + " in FAILED status");
+    }
+
     Account settlementPayable =
         accountRepository
             .findByCode(SystemAccountInitializer.PAYOUT_IN_TRANSIT)
@@ -217,6 +224,13 @@ public class PayoutService {
 
     if (payout.getStatus() == PayoutStatus.FAILED) {
       return toResponse(payout);
+    }
+
+    if (payout.getStatus() == PayoutStatus.PAID) {
+      throw new PayCoreException(
+          HttpStatus.CONFLICT,
+          "invalid_state_transition",
+          "Cannot fail payout " + payoutId + " in PAID status");
     }
 
     Account settlementPayable =
