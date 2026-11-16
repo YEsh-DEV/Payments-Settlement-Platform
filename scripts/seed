@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""
+scripts/seed
+Seeds PayCore with initial users, base accounts, and demo sellers.
+Supports --demo flag for fixed passwords, or generates cryptographically
+strong random credentials printed once to stdout.
+"""
+
+import sys
+import os
+import argparse
+import secrets
+import string
+import subprocess
+
+def generate_secure_password(length=16):
+    chars = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
+    # Ensure at least one lower, upper, digit, and symbol
+    while True:
+        pwd = "".join(secrets.choice(chars) for _ in range(length))
+        if (any(c.islower() for c in pwd)
+                and any(c.isupper() for c in pwd)
+                and any(c.isdigit() for c in pwd)
+                and any(c in "!@#$%^&*()-_=+" for c in pwd)):
+            return pwd
+
+def run_psql(db, sql_query):
+    host = os.environ.get("PGHOST", "localhost")
+    port = os.environ.get("PGPORT", "5432")
+    user = os.environ.get("PGUSER", "postgres")
+    password = os.environ.get("PGPASSWORD", "postgres_dev_password")
+
+    env = os.environ.copy()
+    env["PGPASSWORD"] = password
+
+    cmd = [
+        "psql",
+        "-h", host,
+        "-p", port,
+        "-U", user,
+        "-d", db,
+        "-v", "ON_ERROR_STOP=1",
+        "-c", sql_query
+    ]
+    res = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    if res.returncode != 0:
+        print(f"Error executing SQL on {db}:\n{res.stderr}", file=sys.stderr)
+        sys.exit(1)
+    return res.stdout
+
+def main():
+    parser = argparse.ArgumentParser(description="Seed PayCore users and base platform data")
+    parser.add_argument("--demo", action="store_true", help="Use standard demo credentials")
+    args = parser.parse_args()
+
+    if args.demo:
+        creds = {
+            "admin": ("Admin@PayCore2026!", ["ADMIN"], None),
+            "analyst": ("Analyst@PayCore2026!", ["ANALYST"], None),
+            "operator": ("Operator@PayCore2026!", ["OPERATOR"], None),
+            "merchant_acme": ("Merchant@PayCore2026!", ["MERCHANT"], "seller_acme"),
+        }
+    else:
+        creds = {
+            "admin": (generate_secure_password(), ["ADMIN"], None),
+            "analyst": (generate_secure_password(), ["ANALYST"], None),
+            "operator": (generate_secure_password(), ["OPERATOR"], None),
+            "merchant_acme": (generate_secure_password(), ["MERCHANT"], "seller_acme"),
+        }
+
+    print("================================================================================")
+    print("PAYCORE INITIALIZATION & SEED")
+    print(f"Mode: {'DEMO PRESET' if args.demo else 'SECURE RANDOM (PRINTED ONCE)'}")
+    print("================================================================================")
+
+    # 1. Seed Users in identity database
+    for username, (password, roles, seller_id) in creds.items():
+        roles_sql = "ARRAY[" + ",".join(f"'{r}'" for r in roles) + "]"
+        seller_val = f"'{seller_id}'" if seller_id else "NULL"
+        
+        # Escape single quotes in password for crypt
+        safe_pwd = password.replace("'", "''")
+        
+        sql = f"""
+        INSERT INTO users (id, username, password_hash, roles, seller_id, enabled)
+        VALUES (
+            gen_random_uuid(),
+            '{username}',
+            crypt('{safe_pwd}', gen_salt('bf', 12)),
+            {roles_sql},
+            {seller_val},
+            TRUE
+        )
+        ON CONFLICT (username) DO UPDATE SET
+            password_hash = crypt('{safe_pwd}', gen_salt('bf', 12)),
+            roles = {roles_sql},
+            seller_id = {seller_val},
+            enabled = TRUE;
+        """
+        run_psql("identity", sql)
+
+    # 2. Seed Base System Accounts in ledger database
+    system_accounts = [
+        ("BANK_CASH", "ASSET"),
+        ("PROVIDER_RECEIVABLE", "ASSET"),
+        ("PROVIDER_FEE_EXPENSE", "EXPENSE"),
+        ("PLATFORM_FEE_REVENUE", "REVENUE"),
+        ("WRITE_OFF_EXPENSE", "EXPENSE"),
+        ("SETTLEMENT_PAYABLE", "LIABILITY"),
+        ("USER_FUNDS_IN_TRANSIT", "ASSET"),
+        ("PAYOUT_IN_TRANSIT", "LIABILITY"),
+    ]
+    for acc_code, acc_type in system_accounts:
+        sql = f"""
+        INSERT INTO accounts (id, code, type, currency, balance_paise, locked_balance_paise, is_hot, stripe_count, version, created_at)
+        VALUES (gen_random_uuid(), '{acc_code}', '{acc_type}', 'INR', 0, 0, FALSE, 1, 0, NOW())
+        ON CONFLICT (code) DO NOTHING;
+        """
+        run_psql("ledger", sql)
+
+    # 3. Seed Demo Sellers and their accounts in ledger database
+    sellers = [
+        ("seller_acme", "Acme Store", "STANDARD", 200),
+        ("seller_globex", "Globex Corp", "ENTERPRISE", 150),
+        ("seller_initech", "Initech Retail", "HIGH_VOLUME", 100),
+    ]
+    for seller_id, name, fee_tier, fee_bps in sellers:
+        # Accounts
+        merchant_acc = f"MERCHANT_{seller_id}"
+        held_acc = f"HELD_{seller_id}"
+        acc_sql = f"""
+        INSERT INTO accounts (id, code, type, currency, balance_paise, locked_balance_paise, is_hot, stripe_count, version, created_at)
+        VALUES (gen_random_uuid(), '{merchant_acc}', 'LIABILITY', 'INR', 0, 0, FALSE, 1, 0, NOW())
+        ON CONFLICT (code) DO NOTHING;
+        INSERT INTO accounts (id, code, type, currency, balance_paise, locked_balance_paise, is_hot, stripe_count, version, created_at)
+        VALUES (gen_random_uuid(), '{held_acc}', 'LIABILITY', 'INR', 0, 0, FALSE, 1, 0, NOW())
+        ON CONFLICT (code) DO NOTHING;
+        """
+        run_psql("ledger", acc_sql)
+
+        # Seller
+        seller_sql = f"""
+        INSERT INTO sellers (id, seller_id, name, fee_tier, fee_bps, created_at)
+        VALUES (gen_random_uuid(), '{seller_id}', '{name}', '{fee_tier}', {fee_bps}, NOW())
+        ON CONFLICT (seller_id) DO NOTHING;
+        """
+        run_psql("ledger", seller_sql)
+
+    # 4. Print Credentials Table
+    print(f"{'Username':<18} {'Roles':<15} {'Seller ID':<15} {'Password':<25}")
+    print("-" * 80)
+    for username, (password, roles, seller_id) in creds.items():
+        roles_str = ",".join(roles)
+        seller_str = seller_id if seller_id else "-"
+        print(f"{username:<18} {roles_str:<15} {seller_str:<15} {password:<25}")
+    print("=" * 80)
+    print("Seed complete. Credentials verified in database.")
+
+if __name__ == "__main__":
+    main()

@@ -150,13 +150,21 @@ public class UserService {
   }
 
   private void audit(String actor, String action, String entity, String entityId, String details) {
+    String jsonDetails;
+    if (details == null) {
+      jsonDetails = "{}";
+    } else if (details.trim().startsWith("{") || details.trim().startsWith("[")) {
+      jsonDetails = details;
+    } else {
+      jsonDetails = "{\"message\":\"" + details.replace("\"", "\\\"") + "\"}";
+    }
     AuditLog log =
         new AuditLog(
             actor != null ? actor : "SYSTEM",
             action,
             entity,
             entityId,
-            details,
+            jsonDetails,
             RequestIdFilter.getCurrentRequestId());
     auditLogRepository.save(log);
   }

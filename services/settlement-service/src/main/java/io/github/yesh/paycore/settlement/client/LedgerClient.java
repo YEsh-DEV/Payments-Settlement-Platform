@@ -85,8 +85,14 @@ public class LedgerClient {
       ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
       Map<?, ?> respBody = response.getBody();
       if (response.getStatusCode().is2xxSuccessful() && respBody != null) {
-        String token = (String) respBody.get("token");
-        Number expiresIn = (Number) respBody.get("expiresInSeconds");
+        String token = (String) respBody.get("accessToken");
+        if (token == null) {
+          token = (String) respBody.get("token");
+        }
+        Number expiresIn = (Number) respBody.get("expiresIn");
+        if (expiresIn == null) {
+          expiresIn = (Number) respBody.get("expiresInSeconds");
+        }
         if (token != null) {
           long duration = expiresIn != null ? expiresIn.longValue() : 600L;
           Instant expiresAt = Instant.now().plusSeconds(duration);

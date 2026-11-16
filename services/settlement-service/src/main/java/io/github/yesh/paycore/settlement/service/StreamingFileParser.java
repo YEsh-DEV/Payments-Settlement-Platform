@@ -183,8 +183,9 @@ public class StreamingFileParser {
                 + totalGrossPaise);
       }
 
-      fileRecord =
-          new ProviderSettlementFile(filename, fileHash, provider, parsedCount, totalGrossPaise);
+      fileRecord.setFileHash(fileHash);
+      fileRecord.setTotalRecords(parsedCount);
+      fileRecord.setTotalAmountPaise(totalGrossPaise);
       fileRecord.setStatus(ProviderFileStatus.INGESTED);
       ProviderSettlementFile saved = fileRepository.save(fileRecord);
 

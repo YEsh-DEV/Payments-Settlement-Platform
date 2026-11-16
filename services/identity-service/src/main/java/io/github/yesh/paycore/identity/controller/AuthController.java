@@ -126,7 +126,13 @@ public class AuthController {
           "unauthorized",
           "Authentication required");
     }
-    return ResponseEntity.ok(userService.getUserByUsername(authentication.getName()));
+    String identifier = authentication.getName();
+    try {
+      java.util.UUID userId = java.util.UUID.fromString(identifier);
+      return ResponseEntity.ok(userService.getUser(userId));
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.ok(userService.getUserByUsername(identifier));
+    }
   }
 
   @GetMapping("/.well-known/jwks.json")
