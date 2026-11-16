@@ -194,6 +194,45 @@ class IdempotencyServiceTest {
   }
 
   @Test
+  @DisplayName("Previously failed or interrupted record can be retried successfully with same payload")
+  void testFailedRecordCanBeRetriedSuccessfully() throws Exception {
+    String key = "idemp_failed_retry";
+    Map<String, Object> payload = Map.of("amount", 5000);
+    String payloadHash = idempotencyService.hashPayload(objectMapper.writeValueAsString(payload));
+
+    IdempotencyRecord failedRecord =
+        new IdempotencyRecord("global", key, payloadHash, IdempotencyStatus.FAILED, null);
+
+    when(repository.findByScopeAndKey("global", key)).thenReturn(Optional.of(failedRecord));
+
+    AtomicInteger callCount = new AtomicInteger(0);
+    TestResult result =
+        idempotencyService.execute(
+            key,
+            payload,
+            () -> {
+              callCount.incrementAndGet();
+              return new TestResult("RETRY_SUCCESS", 200);
+            },
+            TestResult.class);
+
+    assertThat(callCount.get()).isEqualTo(1);
+    assertThat(result.status()).isEqualTo("RETRY_SUCCESS");
+    assertThat(failedRecord.getStatus()).isEqualTo(IdempotencyStatus.COMPLETED);
+  }
+
+  @Test
+  @DisplayName("Startup crash recovery resets orphaned IN_FLIGHT keys to FAILED")
+  void testStartupRecoveryResetsInFlightToFailed() {
+    when(repository.updateStatusByStatus(IdempotencyStatus.IN_FLIGHT, IdempotencyStatus.FAILED)).thenReturn(5);
+
+    int recovered = idempotencyService.recoverOrphanedInFlightKeysOnStartup();
+
+    assertThat(recovered).isEqualTo(5);
+    verify(repository).updateStatusByStatus(IdempotencyStatus.IN_FLIGHT, IdempotencyStatus.FAILED);
+  }
+
+  @Test
   @DisplayName("7-day cleanup job purges expired completed/failed records")
   void testCleanupExpiredRecords() {
     when(repository.deleteByStatusInAndCreatedAtBefore(any(), any())).thenReturn(42);

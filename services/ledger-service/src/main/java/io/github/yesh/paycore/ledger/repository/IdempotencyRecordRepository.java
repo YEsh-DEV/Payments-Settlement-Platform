@@ -20,6 +20,12 @@ public interface IdempotencyRecordRepository extends JpaRepository<IdempotencyRe
   }
 
   @Modifying
+  @Query("UPDATE IdempotencyRecord r SET r.status = :targetStatus WHERE r.status = :sourceStatus")
+  int updateStatusByStatus(
+      @Param("sourceStatus") IdempotencyStatus sourceStatus,
+      @Param("targetStatus") IdempotencyStatus targetStatus);
+
+  @Modifying
   @Query("DELETE FROM IdempotencyRecord r WHERE r.status IN :statuses AND r.createdAt < :cutoff")
   int deleteByStatusInAndCreatedAtBefore(
       @Param("statuses") Collection<IdempotencyStatus> statuses, @Param("cutoff") Instant cutoff);

@@ -93,6 +93,9 @@ public class IdempotencyService {
               "request_in_progress",
               "A request with this idempotency key is currently processing");
         }
+      } else if (record.getStatus() == IdempotencyStatus.FAILED) {
+        log.info("Retrying previously interrupted or failed idempotency key {} (scoped: {})", key, resolvedScope);
+        takeOverStaleKey(resolvedScope, key, requestHash);
       } else if (record.getStatus() == IdempotencyStatus.COMPLETED && record.getResponseBody() != null) {
         markReplayedHeader();
         return deserialize(record.getResponseBody(), responseClass);
@@ -180,6 +183,16 @@ public class IdempotencyService {
               record.setStatus(IdempotencyStatus.FAILED);
               repository.save(record);
             });
+  }
+
+  @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+  @Transactional
+  public int recoverOrphanedInFlightKeysOnStartup() {
+    int updated = repository.updateStatusByStatus(IdempotencyStatus.IN_FLIGHT, IdempotencyStatus.FAILED);
+    if (updated > 0) {
+      log.info("Crash recovery: reset {} orphaned IN_FLIGHT idempotency keys to FAILED for safe client replay", updated);
+    }
+    return updated;
   }
 
   @Scheduled(cron = "${paycore.ledger.idempotency.cleanup-cron:0 0 3 * * *}")

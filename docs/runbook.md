@@ -163,7 +163,7 @@ Verify that sudden process termination (`SIGKILL`, node power failure, OS kernel
 ### Automated Test Harness Execution
 Run the automated 50-iteration crash harness:
 ```bash
-./tests/crash-harness/sigkill-crash-test.sh
+./scripts/crash-test
 ```
 
 ### Manual Disaster Recovery Audit Queries
@@ -201,22 +201,22 @@ WHERE status = 'IN_FLIGHT' AND created_at < NOW() - INTERVAL '5 minutes';
 
 ---
 
-## SOP-05: Hot-Account Strategy Dynamic Switching
+## SOP-05: Hot-Account Strategy Configuration (Requires Service Restart)
 
 ### Objective
-Adjust posting strategy depending on traffic profile and platform hot-spot contention.
+Configure posting strategy depending on traffic profile and platform hot-spot contention. In accordance with ADR 008 and Playbook Section 9, strategy switching requires a service restart to ensure balance caches and stripe distributions remain completely consistent.
 
 ### Strategy Profiles
 
-| Strategy Code | Concurrency Model | Contention Limit | Recommended Use |
+| Strategy Code | Concurrency Model | Contention Profile | Recommended Use |
 | :--- | :--- | :--- | :--- |
-| `S0_PESSIMISTIC` | Global ascending UUID locks | Up to ~1,240 TPS | Normal uniform traffic; absolute baseline serializability. |
-| `S1_LATE_LOCK` | Commit-window lock deferral | Up to ~1,680 TPS | Moderate hot-spotting; cuts row lock hold duration ~82%. |
-| `S2_STRIPED` | 10-way balance striping | Up to ~2,890 TPS | High-volume flash sales (Pareto 80/20 & mega-merchants). |
-| `S4_LEDGER_ONLY` | Append-only event-sourced | Up to ~3,980 TPS | Extreme high-throughput ingestion with async snapshot aggregation. |
+| `S0_PESSIMISTIC` | Global ascending UUID locks | Contention on hot platform account | Uniform traffic; baseline serializability. |
+| `S1_LATE_LOCK` | Commit-window lock deferral | Serialization conflicts at 64+ VUs | Moderate hot-spotting; cuts row lock hold duration. |
+| `S2_STRIPED` | 16-way balance striping | Contention divided across 16 stripes | Default production strategy (zero aborts, lowest p99 latency). |
+| `S4_LEDGER_ONLY` | Append-only event-sourced | Zero hot row locks | High-throughput ingestion with async snapshot aggregation. |
 
-### Dynamic Strategy Configuration
-Set the active strategy in `services/ledger-service/src/main/resources/application.yml` or via container environment variable:
+### Strategy Configuration
+Set the active strategy in `services/ledger-service/src/main/resources/application.yml` or via container environment variable (restart required):
 ```bash
 export PAYCORE_LEDGER_STRATEGY=S2_STRIPED
 ```
