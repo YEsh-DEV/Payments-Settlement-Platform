@@ -5,14 +5,23 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "journals")
+@Table(
+    name = "journals",
+    uniqueConstraints = {
+      @UniqueConstraint(
+          name = "uk_journals_scope_idempotency_key",
+          columnNames = {"scope", "idempotency_key"})
+    })
 public class Journal {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
   private UUID id;
 
-  @Column(name = "idempotency_key", nullable = false, unique = true, length = 128)
+  @Column(name = "scope", nullable = false, length = 64)
+  private String scope = "global";
+
+  @Column(name = "idempotency_key", nullable = false, length = 128)
   private String idempotencyKey;
 
   @Column(name = "reference_id", length = 128)
@@ -31,7 +40,17 @@ public class Journal {
   public Journal() {}
 
   public Journal(String idempotencyKey, String referenceId, JournalType type, String description) {
+    this("global", idempotencyKey, referenceId, type, description);
+  }
+
+  public Journal(
+      String scope,
+      String idempotencyKey,
+      String referenceId,
+      JournalType type,
+      String description) {
     this.id = UUID.randomUUID();
+    this.scope = (scope != null && !scope.isBlank()) ? scope : "global";
     this.idempotencyKey = idempotencyKey;
     this.referenceId = referenceId;
     this.type = type;
@@ -45,6 +64,10 @@ public class Journal {
 
   public void setId(UUID id) {
     this.id = id;
+  }
+
+  public String getScope() {
+    return scope;
   }
 
   public String getIdempotencyKey() {

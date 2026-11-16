@@ -13,7 +13,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface IdempotencyRecordRepository extends JpaRepository<IdempotencyRecord, IdempotencyKeyId> {
+public interface IdempotencyRecordRepository
+    extends JpaRepository<IdempotencyRecord, IdempotencyKeyId> {
 
   default Optional<IdempotencyRecord> findByScopeAndKey(String scope, String key) {
     return findById(new IdempotencyKeyId(scope, key));
@@ -24,6 +25,14 @@ public interface IdempotencyRecordRepository extends JpaRepository<IdempotencyRe
   int updateStatusByStatus(
       @Param("sourceStatus") IdempotencyStatus sourceStatus,
       @Param("targetStatus") IdempotencyStatus targetStatus);
+
+  @Modifying
+  @Query(
+      "UPDATE IdempotencyRecord r SET r.status = :targetStatus WHERE r.status = :sourceStatus AND r.createdAt < :cutoff")
+  int updateStatusByStatusAndCreatedAtBefore(
+      @Param("sourceStatus") IdempotencyStatus sourceStatus,
+      @Param("targetStatus") IdempotencyStatus targetStatus,
+      @Param("cutoff") Instant cutoff);
 
   @Modifying
   @Query("DELETE FROM IdempotencyRecord r WHERE r.status IN :statuses AND r.createdAt < :cutoff")

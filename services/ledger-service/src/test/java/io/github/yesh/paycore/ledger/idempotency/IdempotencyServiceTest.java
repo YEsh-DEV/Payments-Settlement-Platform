@@ -70,7 +70,8 @@ class IdempotencyServiceTest {
   }
 
   @Test
-  @DisplayName("Subsequent execution with same key and payload returns cached response without running action")
+  @DisplayName(
+      "Subsequent execution with same key and payload returns cached response without running action")
   void testSubsequentExecutionReturnsCache() throws Exception {
     String key = "idemp_cached";
     Map<String, Object> payload = Map.of("amount", 5000);
@@ -189,12 +190,15 @@ class IdempotencyServiceTest {
 
     assertThat(r1.status()).isEqualTo("ALICE");
     assertThat(r2.status()).isEqualTo("BOB");
-    verify(repository).save(argThat(rec -> "merchant_alice".equals(rec.getScope()) && key.equals(rec.getKey())));
-    verify(repository).save(argThat(rec -> "merchant_bob".equals(rec.getScope()) && key.equals(rec.getKey())));
+    verify(repository)
+        .save(argThat(rec -> "merchant_alice".equals(rec.getScope()) && key.equals(rec.getKey())));
+    verify(repository)
+        .save(argThat(rec -> "merchant_bob".equals(rec.getScope()) && key.equals(rec.getKey())));
   }
 
   @Test
-  @DisplayName("Previously failed or interrupted record can be retried successfully with same payload")
+  @DisplayName(
+      "Previously failed or interrupted record can be retried successfully with same payload")
   void testFailedRecordCanBeRetriedSuccessfully() throws Exception {
     String key = "idemp_failed_retry";
     Map<String, Object> payload = Map.of("amount", 5000);
@@ -222,14 +226,106 @@ class IdempotencyServiceTest {
   }
 
   @Test
-  @DisplayName("Startup crash recovery resets orphaned IN_FLIGHT keys to FAILED")
+  @DisplayName(
+      "Startup crash recovery resets orphaned IN_FLIGHT keys older than safety margin to FAILED")
   void testStartupRecoveryResetsInFlightToFailed() {
-    when(repository.updateStatusByStatus(IdempotencyStatus.IN_FLIGHT, IdempotencyStatus.FAILED)).thenReturn(5);
+    when(repository.updateStatusByStatusAndCreatedAtBefore(
+            eq(IdempotencyStatus.IN_FLIGHT), eq(IdempotencyStatus.FAILED), any(Instant.class)))
+        .thenReturn(5);
 
     int recovered = idempotencyService.recoverOrphanedInFlightKeysOnStartup();
 
     assertThat(recovered).isEqualTo(5);
-    verify(repository).updateStatusByStatus(IdempotencyStatus.IN_FLIGHT, IdempotencyStatus.FAILED);
+    verify(repository)
+        .updateStatusByStatusAndCreatedAtBefore(
+            eq(IdempotencyStatus.IN_FLIGHT), eq(IdempotencyStatus.FAILED), any(Instant.class));
+  }
+
+  @Test
+  @DisplayName(
+      "Crash Window 1: Failure before journal write leaves key in-flight, recovered retry succeeds")
+  void testCrashWindow1BeforeJournalWriteRecoversCleanly() {
+    String key = "idemp_crash_win1";
+    Map<String, Object> payload = Map.of("amount", 2500);
+
+    when(repository.findByScopeAndKey("global", key)).thenReturn(Optional.empty());
+
+    // Claim succeeds, then action throws simulated crash exception before journal is written
+    assertThatThrownBy(
+            () ->
+                idempotencyService.execute(
+                    key,
+                    payload,
+                    () -> {
+                      throw new RuntimeException("SIGKILL before journal write");
+                    },
+                    TestResult.class))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("SIGKILL before journal write");
+
+    verify(repository).save(argThat(rec -> rec.getStatus() == IdempotencyStatus.IN_FLIGHT));
+  }
+
+  @Test
+  @DisplayName(
+      "Crash Window 2: Failure during transaction commit triggers rollback, replay with same key succeeds")
+  void testCrashWindow2DuringCommitRollsBackAndReplaySucceeds() throws Exception {
+    String key = "idemp_crash_win2";
+    Map<String, Object> payload = Map.of("amount", 3000);
+    String payloadHash = idempotencyService.hashPayload(objectMapper.writeValueAsString(payload));
+
+    // After rollback and startup recovery, record is in status FAILED
+    IdempotencyRecord failedRec =
+        new IdempotencyRecord("global", key, payloadHash, IdempotencyStatus.FAILED, null);
+    when(repository.findByScopeAndKey("global", key)).thenReturn(Optional.of(failedRec));
+
+    AtomicInteger journalCount = new AtomicInteger(0);
+    TestResult replayResult =
+        idempotencyService.execute(
+            key,
+            payload,
+            () -> {
+              journalCount.incrementAndGet();
+              return new TestResult("COMMITTED_ON_REPLAY", 201);
+            },
+            TestResult.class);
+
+    assertThat(journalCount.get()).isEqualTo(1);
+    assertThat(replayResult.status()).isEqualTo("COMMITTED_ON_REPLAY");
+    assertThat(failedRec.getStatus()).isEqualTo(IdempotencyStatus.COMPLETED);
+  }
+
+  @Test
+  @DisplayName(
+      "Crash Window 3: Crash after commit before response delivers cached response without duplicate post")
+  void testCrashWindow3AfterCommitReturnsCachedResponse() throws Exception {
+    String key = "idemp_crash_win3";
+    Map<String, Object> payload = Map.of("amount", 4000);
+    String payloadHash = idempotencyService.hashPayload(objectMapper.writeValueAsString(payload));
+
+    // Transaction committed: record is COMPLETED with response snapshot
+    TestResult original = new TestResult("ALREADY_COMMITTED", 201);
+    String cachedJson = objectMapper.writeValueAsString(original);
+    IdempotencyRecord completedRec =
+        new IdempotencyRecord("global", key, payloadHash, IdempotencyStatus.COMPLETED, cachedJson);
+
+    when(repository.findByScopeAndKey("global", key)).thenReturn(Optional.of(completedRec));
+
+    AtomicInteger reExecuted = new AtomicInteger(0);
+    TestResult result =
+        idempotencyService.execute(
+            key,
+            payload,
+            () -> {
+              reExecuted.incrementAndGet();
+              return new TestResult("NEW_DUPLICATE_JOURNAL", 500);
+            },
+            TestResult.class);
+
+    // Replay returns original response, action was NOT called (zero duplicate journals)
+    assertThat(reExecuted.get()).isEqualTo(0);
+    assertThat(result.status()).isEqualTo("ALREADY_COMMITTED");
+    assertThat(result.code()).isEqualTo(201);
   }
 
   @Test

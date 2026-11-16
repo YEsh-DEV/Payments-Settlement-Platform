@@ -54,11 +54,11 @@
   - **SOP-02:** Provider Settlement File Ingestion & Recovery (streaming parsing, SHA-256 duplicate rejection HTTP 409, trailer count/amount integrity validation HTTP 422).
   - **SOP-03:** Discrepancy Case Escalation & Maker-Checker Resolution (SLA targets, automated escalation daemon, strict dual-control separation `approver != proposer`).
   - **SOP-04:** Disaster Recovery & SIGKILL Crash Recovery Verification (WAL replay validation, automated crash harness, orphaned/unbalanced entry queries).
-  - **SOP-05:** Hot-Account Strategy Dynamic Switching (S0, S1, S2, S4 concurrency profiles, dynamic config, production topology recommendations).
+  - **SOP-05:** Hot-Account Strategy Configuration (Requires Service Restart: S0, S1, S2, S4 concurrency profiles, static config via `paycore.ledger.strategy`).
   - **SOP-06:** Mathematical Invariant Auditing (production SQL queries validating Invariants I1 through I8).
 - [x] **Benchmark Study & 100% Crash Durability Guarantee:**
-  - Published comprehensive hot-account concurrency benchmark report (`docs/hot-account-report.md`) verifying **3,980 TPS** under S4 and **2,890 TPS** under S2 striping.
-  - Automated 50-iteration `SIGKILL` crash test harness (`tests/crash-harness/sigkill-crash-test.sh`) verifying **100% crash recovery rate** (0 orphaned entries, 0 unbalanced transactions, 0 incomplete legs).
+  - Published comprehensive hot-account concurrency benchmark report (`docs/benchmark-report.md`) verifying **3,906 req/s** under S2 striping ($N=16$) and **3,731 req/s** under S4 ledger-only.
+  - Automated 50-iteration `SIGKILL` crash test harness (`scripts/crash-test`) verifying real OS-level recovery (median **67.92 ms**, p95 **74.67 ms**, zero invariant violations across all 50 iterations).
 - [x] **Production README.md Documentation:**
   - Complete architecture diagram, Invariants table, hot-account study summary, crash test verification metrics, quick-start guide, and MIT licensing attribution notices.
 - [x] **Reactor Verification & Spotless:**
@@ -197,19 +197,20 @@
 
 - [x] **Hot-Account Strategy Architecture:** Implemented pluggable `PostingStrategy` interface with `PostingStrategyRouter` supporting:
   - `S0_PESSIMISTIC`: Deterministic global lock ordering with strict serializability.
-  - `S1_LATE_LOCK`: Deferring hot-account row locks to the final sub-millisecond commit window, cutting hot-row lock holding times by ~82%.
-  - `S2_STRIPED`: Partitioning hot accounts across $N=10$ stripes (`account_stripes` table), reducing lock contention by 10x and sustaining 2,890 TPS on extreme hot-spots.
-  - `S4_LEDGER_ONLY`: Event-sourced append-only ledger entries with zero hot balance mutations on the write path, sustaining 3,980 TPS.
+  - `S1_LATE_LOCK`: Deferring hot-account row locks to the final sub-millisecond commit window, cutting hot-row lock holding times.
+  - `S2_STRIPED`: Partitioning hot accounts across $N=16$ stripes (`account_stripes` table), reducing lock contention by 16x and sustaining 3,906 req/s on W2.
+  - `S4_LEDGER_ONLY`: Event-sourced append-only ledger entries with zero hot balance mutations on the write path, sustaining 3,731 req/s on W2.
 - [x] **k6 Benchmark Suite:** Scaffolded and parameterized load test scripts in `benchmarks/k6/`:
   - `workload-w1.js`: Uniform distribution across 10,000 sellers.
-  - `workload-w2.js`: 80/20 Pareto distribution (80% volume across top 2,000 merchants).
-  - `workload-w3.js`: Extreme hot-spot (95% volume on 1 mega-merchant and `USER_FUNDS_IN_TRANSIT`).
+  - `workload-w2.js`: 70% payment captures, 20% refunds, 10% payouts.
+  - `workload-w3.js`: 80/20 Pareto distribution (80% volume concentrated on top 20% of merchants per Playbook Section 9.2).
   - `benchmarks/runner.sh`: Automated benchmark execution script.
-- [x] **Comparative Study Report:** Detailed analytical report `docs/hot-account-report.md` comparing throughput (TPS), latencies (p50, p95, p99), lock wait durations, abort rates, and recommending a hybrid tiered architecture for production.
-- [x] **50-Iteration SIGKILL Crash Harness:** `tests/crash-harness/sigkill-crash-test.sh` executing brutal process kills mid-transaction and verifying PostgreSQL WAL crash recovery:
+- [x] **Comparative Study Report:** Detailed analytical reports `docs/benchmark-report.md` and `docs/hot-account-report.md` comparing throughput (TPS), latencies (p50, p95, p99), lock wait durations, abort rates, and establishing ADR 008 production strategy selection (`S2_STRIPED`).
+- [x] **50-Iteration SIGKILL Crash Harness:** `scripts/crash-test` executing real OS-level process kills (`kill -9`) mid-transaction and verifying recovery:
   - Zero orphaned ledger entries (`journal_id NOT IN (SELECT id FROM journals)`).
   - Zero unbalanced transactions (Invariant I1 strictly maintained across all committed journals).
   - Zero incomplete journals with $< 2$ legs.
+  - Zero duplicate journals on replaying pre-kill successes (Assertion F).
 - [x] **Automated Verification:** 43/43 tests passing (100% green across all reactor modules), including `HotAccountStrategiesTest` and `SigkillRecoveryVerificationTest`.
 - [x] **Spotless Check:** `mvn spotless:check` passing with zero formatting violations.
 

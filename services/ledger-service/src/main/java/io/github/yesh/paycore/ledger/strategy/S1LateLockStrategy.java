@@ -123,7 +123,8 @@ public class S1LateLockStrategy implements PostingStrategy {
       for (UUID id : nonHotIds) {
         Account account = lockedAccounts.get(id);
         long delta = computeNetDelta(account.getType(), request.legs(), id);
-        if (account.getCode().startsWith("MERCHANT_") || account.getType() == AccountType.LIABILITY) {
+        if (account.getCode().startsWith("MERCHANT_")
+            || account.getType() == AccountType.LIABILITY) {
           if (account.getBalancePaise() + delta - account.getLockedBalancePaise() < 0) {
             throw new PayCoreException(
                 HttpStatus.UNPROCESSABLE_ENTITY, "insufficient_funds", "Insufficient balance");
@@ -144,10 +145,14 @@ public class S1LateLockStrategy implements PostingStrategy {
       lockedAccounts.put(id, locked);
     }
 
-    // Step 4: Rapidly persist Journal and Entries
+    // Step 4: Rapidly persist Journal and Entries with scope
     Journal journal =
         new Journal(
-            request.idempotencyKey(), request.referenceId(), request.type(), request.description());
+            request.scope(),
+            request.idempotencyKey(),
+            request.referenceId(),
+            request.type(),
+            request.description());
     Journal savedJournal = journalRepository.save(journal);
 
     List<LedgerEntry> entries = new ArrayList<>();

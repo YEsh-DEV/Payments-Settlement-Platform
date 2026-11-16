@@ -1,4 +1,4 @@
-# PayCore — Payments & Settlement Platform
+# PayCore: Payments & Settlement Platform
 
 [![Java 21](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://adoptium.net)
 [![Spring Boot 3.3.6](https://img.shields.io/badge/Spring%20Boot-3.3.6-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -6,7 +6,7 @@
 [![React 19](https://img.shields.io/badge/React-19%20%2B%20Vite-blueviolet.svg)](https://react.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**PayCore** is an audit-grade, high-throughput financial ledger, automated multi-stage settlement, and reconciliation engine built for multi-sided marketplace platforms. It features strict double-entry accounting guarantees (Invariants I1–I8), four hot-account concurrency strategies sustaining up to **3,980 TPS**, automated bank/provider clearing with dynamic programming subset-sum solving, and dual-control maker-checker dispute resolution.
+**PayCore** is a double-entry financial ledger, automated multi-stage settlement, and reconciliation platform built for multi-sided marketplaces. It provides mathematical accounting guarantees (Invariants I1 to I8), four hot-account concurrency strategies sustaining up to **3,906 req/s** on mixed workloads, automated bank/provider clearing with dynamic programming subset-sum solving, and dual-control maker-checker dispute resolution.
 
 ---
 
@@ -32,52 +32,54 @@ flowchart TD
 
 ---
 
-## Core Financial Guarantees (Invariants I1 – I8)
+## Core Financial Guarantees (Invariants I1 to I8)
 
-PayCore provides mathematical and architectural invariants verified by property-based testing (1,500 jqwik checks) and PostgreSQL database triggers:
+PayCore provides mathematical and architectural invariants verified by property-based testing (1,500 jqwik checks), database triggers, and continuous integrity audits:
 
 | Invariant | Guarantee | Enforcement Mechanism |
 | :--- | :--- | :--- |
-| **I1: Double-Entry Zero Sum** | $\sum \text{Debits} = \sum \text{Credits}$ across all journal legs. | Validated in domain value object and application layer before commit. |
+| **I1: Double-Entry Zero Sum** | $\sum \text{Debits} = \sum \text{Credits}$ across all legs of every journal. | Validated in domain value object and application layer before commit. |
 | **I2: Immutability** | Ledger entries cannot be modified or deleted. | PostgreSQL trigger `trg_ledger_entry_immutability` blocks `UPDATE` and `DELETE`. |
-| **I3: Currency Homogeneity** | All amounts in minor units (long paise, strictly INR). | Lossless `Money` value object; floating-point types prohibited. |
-| **I4: Positive Journal Legs** | Every transaction leg amount is strictly $> 0$. | Validated in `JournalLeg` model and DB check constraints. |
-| **I5: Non-Negative Liability** | Merchant available balances never drop below zero. | Atomic row locking `SELECT FOR UPDATE` and check constraint. |
-| **I6: Idempotent Posting** | Duplicate client requests return cached identical response. | SHA-256 payload hash locking in `idempotency_keys` table. |
-| **I7: Deterministic Lock Order** | Non-hot UUIDs asc first, hot UUIDs asc second. | Global sort eliminates deadlocks under extreme concurrency. |
-| **I8: Monotonic Sequence** | Entries indexed by strictly incrementing sequence. | PostgreSQL `BIGSERIAL` sequence ordering. |
+| **I3: Global Balance Correctness** | Global debits equal global credits across the whole ledger. | Verified via continuous integrity service (`GET /v1/integrity`). |
+| **I4: Balance Derivability** | Cached account balance equals sum of entries (or sum of stripes). | Stripe summation in `account_stripes` table; nightly integrity reconciliation. |
+| **I5: Payout Available Balance** | Payout requests never exceed available `SELLER_PAYABLE` (refunds allow negative). | Atomic row lock `SELECT FOR UPDATE` and available balance validation. |
+| **I6: Idempotency** | Duplicate client requests with same key and payload return cached response without duplicate posting. | Atomic claim and response caching in `idempotency_keys` table. |
+| **I7: Refund Cap** | Total refunds on a payment never exceed original captured gross amount. | Cumulative refund sum verification inside payment posting transaction. |
+| **I8: Business Operation Linkage** | Every journal links to at most one business operation and idempotency key. | Unique constraints on `payments.journal_id`, `refunds.journal_id`, `payouts.journal_id`, and `journals(scope, idempotency_key)`. |
 
 ---
 
-## Hot-Account Concurrency Study Summary
+## Hot-Account Concurrency Benchmark Summary
 
-When high-volume marketplaces process transactions, hot settlement accounts (such as `USER_FUNDS_IN_TRANSIT` and large enterprise sellers) suffer severe row lock contention. PayCore implements and benchmarks four concurrency strategies:
+When high-volume marketplaces process transactions, central platform accounts (`PROVIDER_RECEIVABLE` and `PLATFORM_FEE_REVENUE`) suffer severe write contention. PayCore implements and benchmarks four concurrency strategies per Playbook Section 9:
 
-| Strategy | Description | Pareto 80/20 (W2) | Extreme Hot-Spot 95% (W3) | Abort Rate |
-| :--- | :--- | :--- | :--- | :--- |
-| **S0: Pessimistic Lock** | Full-transaction row lock via ascending UUID order. | 1,020 TPS | 480 TPS | 0.0% |
-| **S1: Late-Lock** | Row lock deferred to the sub-millisecond commit window. | 1,450 TPS | 710 TPS | 1.8% |
-| **S2: Striped Accounts** | Account balance partitioned across $N=10$ random stripes. | 2,150 TPS | 2,890 TPS | 0.0% |
-| **S4: Ledger-Only** | Append-only event sourcing with async snapshots. | 3,420 TPS | **3,980 TPS** | 0.0% |
+| Strategy | Description | W1 Captures (Peak) | W2 Mixed (Peak) | W3 Pareto (Peak) | Abort Rate (c=128) |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **S0: Pessimistic Lock** | Full-transaction row lock via ascending UUID order. | 922.6 req/s | 990.5 req/s | 1,037.8 req/s | 0.0% |
+| **S1: Late-Lock** | Row lock deferred to commit window. | 1,965.1 req/s | 2,129.9 req/s | 2,221.2 req/s | 5.51% (serialization conflicts) |
+| **S2: Striped Accounts** | Hot account balance partitioned across $N=16$ stripes. | **3,816.4 req/s** | **3,905.6 req/s** | **3,899.7 req/s** | **0.0%** |
+| **S4: Ledger-Only** | Append-only event sourcing with async snapshots. | 3,791.6 req/s | 3,731.3 req/s | 3,755.5 req/s | 0.0% |
 
-*Detailed experimental analysis, latency percentiles (p50, p95, p99), and recommended tiered topology are published in [docs/hot-account-report.md](docs/hot-account-report.md).*
+*Measurements taken on Linux 7.2.15-omarchy-x86_64 across 240 benchmark executions. Selection by Decision Rule: `S2_STRIPED` (highest sustained throughput with p99 < 12 ms, zero aborts, and live balance). Detailed report in [docs/benchmark-report.md](docs/benchmark-report.md).*
 
 ---
 
-## 100% Crash Recovery Verification (50-Iteration SIGKILL Harness)
+## Crash Recovery Verification (50-Iteration Real Process SIGKILL Harness)
 
-To guarantee ACID durability against sudden catastrophic host power loss or OS panics, PayCore includes an automated 50-iteration crash harness (`tests/crash-harness/sigkill-crash-test.sh`):
+To guarantee ACID durability against sudden process termination, PayCore includes an automated 50-iteration crash harness ([scripts/crash-test](scripts/crash-test)):
 
 ```bash
-# Results over 50 ungraceful SIGKILL cycles during live multi-leg transactions:
-Cycle 50/50: PASSED (Orphaned entries: 0, Unbalanced journals: 0, Incomplete legs: 0)
+# Results over 50 real process SIGKILL termination cycles during live W2 mixed transactions:
+Iteration 50/50: PASSED (Recovery time: 59.93 ms, Invariants: PASS)
 ================================================================================
 Crash Verification Summary:
 Total cycles executed: 50
 Total cycles passed:   50 (100.0%)
-Data integrity violations: 0
+Data integrity violations (I1 to I8): 0
+Average recovery time: 67.21 ms (median 67.92 ms, p95 74.67 ms)
 ================================================================================
 ```
+*Empirical results and per-iteration recovery distribution recorded in [docs/crash-test-report.md](docs/crash-test-report.md).*
 
 ---
 

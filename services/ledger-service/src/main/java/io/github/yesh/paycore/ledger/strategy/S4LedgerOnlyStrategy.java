@@ -107,7 +107,8 @@ public class S4LedgerOnlyStrategy implements PostingStrategy {
       for (UUID id : nonHotIds) {
         Account account = lockedNonHot.get(id);
         long delta = computeNetDelta(account.getType(), request.legs(), id);
-        if (account.getCode().startsWith("MERCHANT_") || account.getType() == AccountType.LIABILITY) {
+        if (account.getCode().startsWith("MERCHANT_")
+            || account.getType() == AccountType.LIABILITY) {
           long prospectiveBalance = account.getBalancePaise() + delta;
           long available = prospectiveBalance - account.getLockedBalancePaise();
           if (available < 0) {
@@ -122,7 +123,11 @@ public class S4LedgerOnlyStrategy implements PostingStrategy {
 
     Journal journal =
         new Journal(
-            request.idempotencyKey(), request.referenceId(), request.type(), request.description());
+            request.scope(),
+            request.idempotencyKey(),
+            request.referenceId(),
+            request.type(),
+            request.description());
     Journal savedJournal = journalRepository.save(journal);
 
     List<LedgerEntry> entries = new ArrayList<>();

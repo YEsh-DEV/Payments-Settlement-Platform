@@ -1,80 +1,83 @@
-# PayCore Hot-Account Benchmark & Strategy Study Report
+# PayCore Hot-Account Strategy Study Report
 
-*Evaluation of Four Hot-Account Posting Architectures Under Extreme Concurrency & Skew*
+Evaluation of four hot-account posting architectures under concurrency and account skew (Playbook Section 9).
 
 ---
 
 ## 1. Executive Summary
 
-In payment settlement platforms, central clearing nodes (such as `USER_FUNDS_IN_TRANSIT` and `PLATFORM_FEE_REVENUE`) and mega-merchants experience extreme write contention. Under naive row-locking (S0), serialized database transactions on hot account rows create catastrophic lock queues, transaction timeouts, and throughput collapse.
+Central clearing accounts in payment settlement platforms (such as `USER_FUNDS_IN_TRANSIT` and `PLATFORM_FEE_REVENUE`) and high-volume merchant accounts experience high write contention. Under naive row locking (S0), serialized database transactions on hot account rows create lock queues, high latency, and throughput collapse.
 
-This study benchmarks four distinct strategies across three production workloads:
+This study benchmarks four distinct strategies defined in Playbook Section 9.1:
 - **S0 (PESSIMISTIC):** Immediate row lock via `SELECT ... FOR UPDATE` with global deadlock-free ordering.
-- **S1 (LATE_LOCK):** Deferred hot-account lock acquisition until the final millisecond before commit.
-- **S2 (STRIPED):** Multi-stripe partitioning of hot accounts ($N = 10$) with random stripe assignment.
+- **S1 (LATE_LOCK):** Deferred hot-account lock acquisition until right before SQL commit.
+- **S2 (STRIPED):** Multi-stripe partitioning of hot accounts ($N = 16$) with random stripe assignment.
 - **S4 (LEDGER_ONLY):** Append-only event-sourced ledger entries with zero hot-row balance mutation on the write path.
 
----
-
-## 2. Benchmark Workload Profiles
-
-1. **Workload W1 (Uniform Baseline):**
-   - 10,000 sellers, uniform distribution.
-   - Low contention on individual merchant rows; moderate contention on central clearing accounts.
-2. **Workload W2 (80/20 Pareto Distribution):**
-   - 80% of volume concentrated across top 20% (2,000) merchants.
-   - Realistic e-commerce peak distribution.
-3. **Workload W3 (Extreme Hot-Spot):**
-   - 95% of all payment captures hit 1 single mega-merchant (`seller_mega_1`) and `USER_FUNDS_IN_TRANSIT`.
-   - Maximum stress test for row-level lock serialization.
+The full benchmark methodology, 240 benchmark result runs, and raw JSON measurements are documented in [benchmark-report.md](file:///mnt/nexus/paycore/docs/benchmark-report.md) and [benchmark-audit.md](file:///mnt/nexus/paycore/docs/audit/benchmark-audit.md).
 
 ---
 
-## 3. Empirical Performance Matrix
+## 2. Benchmark Workloads and Execution Protocol
 
-| Strategy | Workload | Throughput (TPS) | Latency p50 (ms) | Latency p95 (ms) | Latency p99 (ms) | Lock Wait (ms) | Abort / Conflict Rate |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **S0 (Pessimistic)** | W1 | 3,180 | 14.2 | 38.5 | 72.1 | 2.1 | 0.00% |
-| **S0 (Pessimistic)** | W2 | 1,840 | 28.6 | 94.3 | 215.0 | 18.4 | 0.42% |
-| **S0 (Pessimistic)** | W3 | 315 | 162.0 | 480.0 | 1,120.0 | 148.0 | 4.85% |
-| **S1 (Late-Lock)** | W1 | 3,350 | 12.8 | 32.1 | 58.4 | 1.1 | 0.00% |
-| **S1 (Late-Lock)** | W2 | 2,620 | 19.4 | 61.2 | 118.0 | 7.8 | 0.12% |
-| **S1 (Late-Lock)** | W3 | 1,460 | 36.2 | 108.5 | 240.0 | 26.5 | 0.95% |
-| **S2 (Striped N=10)** | W1 | 3,410 | 11.9 | 29.8 | 52.0 | 0.8 | 0.00% |
-| **S2 (Striped N=10)** | W2 | 3,250 | 13.5 | 34.2 | 64.0 | 2.3 | 0.02% |
-| **S2 (Striped N=10)** | W3 | 2,890 | 16.2 | 44.1 | 86.5 | 4.9 | 0.08% |
-| **S4 (Ledger-Only)** | W1 | 4,200 | 8.2 | 21.0 | 38.0 | 0.2 | 0.00% |
-| **S4 (Ledger-Only)** | W2 | 4,150 | 8.6 | 22.4 | 41.2 | 0.3 | 0.00% |
-| **S4 (Ledger-Only)** | W3 | 3,980 | 9.1 | 24.8 | 46.5 | 0.4 | 0.00% |
+The benchmark suite implements three workloads specified in Playbook Section 9.2:
+- **W1 (Uniform Captures):** 100% payment captures across distinct seller accounts.
+- **W2 (Mixed Marketplace Flow):** 70% payment captures, 20% refunds, 10% payout requests.
+- **W3 (Pareto Hot-Spot):** 80% of payment captures concentrated on 20% of sellers.
+
+Each cell was evaluated across 5 concurrency levels ($c \in \{1, 8, 32, 64, 128\}$) with 3 independent test runs per cell (reporting the median).
 
 ---
 
-## 4. Key Architectural Insights & Trade-Offs
+## 3. Measured Performance Summary
+
+### Peak Sustained Throughput (req/s)
+
+| Strategy | W1 (Uniform) | W2 (Mixed Flow) | W3 (Pareto) |
+| :--- | :---: | :---: | :---: |
+| **S0 (Pessimistic)** | 922.6 | 990.5 | 1,037.8 |
+| **S1 (Late-Lock)** | 1,965.1 | 2,129.9 | 2,221.2 |
+| **S2 (Striped, N=16)** | **3,816.4** | **3,905.6** | **3,899.7** |
+| **S4 (Ledger-Only)** | 3,791.6 | 3,731.3 | 3,755.5 |
+
+### Latency and Conflict Profile at Concurrency 128 (Workload W2)
+
+| Strategy | Throughput (req/s) | p50 Latency (ms) | p95 Latency (ms) | p99 Latency (ms) | Abort Rate (%) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **S0 (Pessimistic)** | 223.7 | 70.24 | 114.09 | 150.16 | 0.00% |
+| **S1 (Late-Lock)** | 792.3 | 19.97 | 30.44 | 37.80 | 5.51% |
+| **S2 (Striped, N=16)** | **3,547.3** | **3.91** | **8.37** | **11.61** | **0.00%** |
+| **S4 (Ledger-Only)** | 2,819.7 | 5.12 | 9.09 | 12.23 | 0.00% |
+
+---
+
+## 4. Architectural Analysis and Trade-Offs
 
 ### 4.1 S0: Pessimistic Row Locking
-- **Pros:** Trivial mental model, real-time balance always accurate in `accounts.balance_paise`.
-- **Cons:** Under W3 extreme hot-spot, throughput collapses by **90%** (3,180 $\to$ 315 TPS). Lock wait queue exceeds 148ms per transaction.
-- **Verdict:** Suitable only for low-volume or evenly distributed systems.
+- **Mechanism:** Acquires row-level exclusive locks (`FOR UPDATE`) in deterministic account ID order during the transaction.
+- **Trade-off:** Strong immediate consistency, but throughput drops to 223.7 req/s at $c=128$ due to lock queues. Lock queuing causes p99 latency to rise to 150.16 ms.
+- **Conclusion:** Not suitable for high-throughput clearing accounts.
 
 ### 4.2 S1: Late Locking
-- **Pros:** Zero schema modifications. Reduces hot lock hold duration by ~82% by performing non-hot validations first and grabbing the hot lock only prior to SQL flush.
-- **Cons:** Under high concurrency with long validation phases, transactions still serialize at the commit gate.
-- **Verdict:** Excellent drop-in optimization over S0 without schema changes.
+- **Mechanism:** Executes non-hot account modifications and invariant checks first; acquires exclusive lock on the hot clearing account only immediately prior to transaction commit.
+- **Trade-off:** Reduces lock hold duration and boosts throughput to 2,129.9 req/s at $c=32$. However, under extreme concurrency ($c=128$), conflicting transactions attempting to acquire the hot row lock cause serialization failures (5.51% abort rate).
+- **Conclusion:** Effective at moderate concurrency; unacceptable conflict rate at peak concurrency.
 
-### 4.3 S2: Striped Accounts ($N = 10$)
-- **Pros:** Reduces lock contention by exactly factor $N$. Delivers **2,890 TPS** on extreme hot-spot W3 (~9.2x speedup over S0).
-- **Cons:** Read queries for total account balance must compute $\sum_{i=0}^{N-1} \text{stripe}_i$ via indexed sum query or periodic roll-up.
-- **Verdict:** **Recommended production strategy for PayCore central clearing nodes.**
+### 4.3 S2: Striped Accounts ($N = 16$)
+- **Mechanism:** Divides hot clearing accounts into $N = 16$ independent balance stripe rows (`account_stripes`). Write transactions pick a pseudo-random stripe using bitwise masking (`stripe_index = thread_hash & 15`). Read balance queries compute $\sum \text{stripe\_balance}$.
+- **Trade-off:** Reduces hot row lock contention by a factor of 16. Achieves 3,905.6 req/s peak sustained throughput and maintains 3,547.3 req/s at $c=128$ with p99 latency of 11.61 ms and 0.00% aborts.
+- **Conclusion:** Meets all criteria of the Playbook Section 9.3 Decision Rule (highest throughput, p99 < 250 ms, zero invariant violations). Selected as the production ledger posting strategy in ADR 008.
 
 ### 4.4 S4: Ledger-Only (Event-Sourced Append)
-- **Pros:** Highest raw write throughput (3,980 TPS on W3) with near-zero lock contention ($< 0.4$ ms).
-- **Cons:** Balance reads require scanning entries since latest snapshot. Requires asynchronous background snapshotting worker to maintain fast balance query times.
-- **Verdict:** Ideal for ultra-high-throughput payment ingest gateways.
+- **Mechanism:** Writes immutable journal and entry rows without updating balance rows in the critical transaction path. Account balances are derived asynchronously by background snapshot aggregators.
+- **Trade-off:** Achieves 3,731.3 req/s peak throughput with zero row locking on balances. However, point-in-time balance lookups require reading un-snapshotted journal entries or accepting eventual consistency.
+- **Conclusion:** High write throughput, but adds operational complexity for real-time payout validations that require immediate available balance verification.
 
 ---
 
-## 5. Production Recommendation
+## 5. Strategy Decision
 
-PayCore adopts a **hybrid tiered strategy**:
-1. **Normal Merchants:** S0 / S1 (single row, immediate consistency).
-2. **High-Volume Sellers & Clearing Accounts:** S2 (`STRIPED`, $N = 10$) for `USER_FUNDS_IN_TRANSIT` and `PLATFORM_FEE_REVENUE`, configured via `is_hot = TRUE` and `stripe_count = 10`.
+In accordance with ADR 008 and Playbook Section 9.3:
+- Strategy is configured at application startup via `paycore.ledger.strategy=S2_STRIPED`.
+- Stripe allocation is defined in schema migration `V2__striped_accounts.sql` with $N = 16$ stripes.
+- Balance verification for striped accounts computes the aggregate balance across all 16 stripes, satisfying Invariant I4.

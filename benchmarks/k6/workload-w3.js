@@ -22,11 +22,11 @@ export const options = {
 const BASE_URL = __ENV.PAYCORE_BASE_URL || 'http://localhost:8082';
 
 export default function () {
-  // W3: Extreme hot-spot: 95% of traffic hits 1 mega-merchant: seller_mega_1
-  const isMega = Math.random() < 0.95;
-  const sellerId = isMega
-    ? 'seller_mega_1'
-    : `seller_${Math.floor(Math.random() * 500) + 2}`;
+  // W3: Pareto hot-spot: 80% of traffic hits top 20% of sellers (Playbook 9.2)
+  const isParetoTop = Math.random() < 0.80;
+  const sellerId = isParetoTop
+    ? `seller_${Math.floor(Math.random() * 20) + 1}`
+    : `seller_${Math.floor(Math.random() * 80) + 21}`;
 
   const paymentId = `pay_${uuidv4()}`;
   const idempotencyKey = `idemp_${paymentId}`;

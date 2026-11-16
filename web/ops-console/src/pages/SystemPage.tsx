@@ -6,21 +6,21 @@ import {
 
 export function SystemPage() {
   const invariants = [
-    { id: 'I1', name: 'Double-Entry Zero Sum', status: 'PASSING', description: 'Total debits equals total credits across all legs' },
+    { id: 'I1', name: 'Double-Entry Zero Sum', status: 'PASSING', description: 'Total debits equals total credits across all legs of every journal' },
     { id: 'I2', name: 'Immutable Audit Trail', status: 'PASSING', description: 'PostgreSQL trigger prevents UPDATE and DELETE on ledger_entries' },
-    { id: 'I3', name: 'Currency Homogeneity', status: 'PASSING', description: 'Money value object strictly typed to INR (minor units: paise)' },
-    { id: 'I4', name: 'Positive Journal Legs', status: 'PASSING', description: 'amount_paise > 0 enforced at schema and application layers' },
-    { id: 'I5', name: 'Non-Negative Liability', status: 'PASSING', description: 'Merchant available balance never drops below zero' },
-    { id: 'I6', name: 'Idempotent Posting', status: 'PASSING', description: 'Replay of cached request returns identical response without side-effects' },
-    { id: 'I7', name: 'Deterministic Lock Order', status: 'PASSING', description: 'Non-hot UUIDs asc first, hot UUIDs asc second; zero deadlocks' },
-    { id: 'I8', name: 'Monotonic Sequence', status: 'PASSING', description: 'Ledger entries ordered by BIGSERIAL id sequence' },
+    { id: 'I3', name: 'Global Balance Correctness', status: 'PASSING', description: 'Global debits equal global credits across whole ledger (verified via GET /v1/integrity)' },
+    { id: 'I4', name: 'Balance Derivability', status: 'PASSING', description: 'Account balance strictly equals sum of all entries (and sum of stripes)' },
+    { id: 'I5', name: 'Payout Available Balance', status: 'PASSING', description: 'Payout requests never overdraw available balance; refunds allow negative payable' },
+    { id: 'I6', name: 'Idempotent Posting', status: 'PASSING', description: 'Atomic claim and completion with SHA-256 payload hash verification' },
+    { id: 'I7', name: 'Refund Cap', status: 'PASSING', description: 'Cumulative refunds on a payment never exceed original captured gross amount' },
+    { id: 'I8', name: 'Business Operation Linkage', status: 'PASSING', description: 'Each journal links to at most one business entity and caller idempotency key' },
   ];
 
   const strategies = [
-    { code: 'S0_PESSIMISTIC', name: 'Pessimistic Locking', baselineTps: '1,240 TPS', desc: 'Strict serializability with fixed global lock order', active: false },
-    { code: 'S1_LATE_LOCK', name: 'Late-Acquire Lock', baselineTps: '1,850 TPS', desc: 'Defers hot account row lock to final commit window, reducing lock duration ~82%', active: false },
-    { code: 'S2_STRIPED', name: 'Striped Accounts', baselineTps: '2,890 TPS', desc: 'Partitions hot accounts across N=10 stripes in account_stripes table', active: true },
-    { code: 'S4_LEDGER_ONLY', name: 'Event-Sourced Append', baselineTps: '3,980 TPS', desc: 'Append-only ledger entries with zero hot balance mutations on write path', active: false },
+    { code: 'S0_PESSIMISTIC', name: 'Pessimistic Locking', baselineTps: '990 req/s', desc: 'Strict serializability with fixed global lock order (W2 peak)', active: false },
+    { code: 'S1_LATE_LOCK', name: 'Late-Acquire Lock', baselineTps: '2,130 req/s', desc: 'Defers hot account row lock to commit window (W2 peak)', active: false },
+    { code: 'S2_STRIPED', name: 'Striped Accounts', baselineTps: '3,906 req/s', desc: 'Default production strategy: partitions hot accounts across N=16 stripes (W2 peak, 0.0% aborts)', active: true },
+    { code: 'S4_LEDGER_ONLY', name: 'Event-Sourced Append', baselineTps: '3,731 req/s', desc: 'Append-only ledger entries with zero hot balance mutations on write path (W2 peak)', active: false },
   ];
 
   return (

@@ -10,7 +10,6 @@ import io.github.yesh.paycore.ledger.strategy.PostingStrategyRouter;
 import io.github.yesh.paycore.ledger.strategy.StrategyType;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -73,7 +72,8 @@ class IntegrityServiceTest {
     when(journalRepository.findAll()).thenReturn(List.of(journal));
 
     LedgerEntry drEntry = new LedgerEntry(jrnId, accId, EntryDirection.DR, 100000L, 100000L);
-    LedgerEntry crEntry = new LedgerEntry(jrnId, UUID.randomUUID(), EntryDirection.CR, 100000L, 100000L);
+    LedgerEntry crEntry =
+        new LedgerEntry(jrnId, UUID.randomUUID(), EntryDirection.CR, 100000L, 100000L);
     when(ledgerEntryRepository.findByJournalId(jrnId)).thenReturn(List.of(drEntry, crEntry));
 
     IntegrityReportResponse report = integrityService.runIntegrityCheck();
@@ -150,8 +150,10 @@ class IntegrityServiceTest {
     when(accountRepository.findAll()).thenReturn(List.of(hotAccount));
 
     // Calculated from entries: 20000 paise
-    when(ledgerEntryRepository.sumAmountByAccountIdAndDirection(accId, EntryDirection.DR)).thenReturn(0L);
-    when(ledgerEntryRepository.sumAmountByAccountIdAndDirection(accId, EntryDirection.CR)).thenReturn(20000L);
+    when(ledgerEntryRepository.sumAmountByAccountIdAndDirection(accId, EntryDirection.DR))
+        .thenReturn(0L);
+    when(ledgerEntryRepository.sumAmountByAccountIdAndDirection(accId, EntryDirection.CR))
+        .thenReturn(20000L);
 
     // Sum of stripes: 18000 paise (stripe desync!)
     when(accountStripeRepository.sumBalanceByAccountId(accId)).thenReturn(18000L);
@@ -179,7 +181,8 @@ class IntegrityServiceTest {
     when(journalRepository.findAll()).thenReturn(List.of(journal));
 
     // DR 1000, CR 900
-    LedgerEntry drEntry = new LedgerEntry(jrnId, UUID.randomUUID(), EntryDirection.DR, 1000L, 1000L);
+    LedgerEntry drEntry =
+        new LedgerEntry(jrnId, UUID.randomUUID(), EntryDirection.DR, 1000L, 1000L);
     LedgerEntry crEntry = new LedgerEntry(jrnId, UUID.randomUUID(), EntryDirection.CR, 900L, 900L);
     when(ledgerEntryRepository.findByJournalId(jrnId)).thenReturn(List.of(drEntry, crEntry));
 

@@ -164,7 +164,8 @@ class PostingEngineTest {
     when(journalRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, payoutTransit));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
-    when(accountRepository.findByIdForUpdate(payoutTransitId)).thenReturn(Optional.of(payoutTransit));
+    when(accountRepository.findByIdForUpdate(payoutTransitId))
+        .thenReturn(Optional.of(payoutTransit));
 
     // Debit merchant for 1000 paise (Rs 10) when only 500 paise (Rs 5) available on PAYOUT
     List<JournalLeg> legs =
@@ -174,7 +175,11 @@ class PostingEngineTest {
 
     JournalRequest request =
         new JournalRequest(
-            "idemp_overdraft", "ref_overdraft", JournalType.PAYOUT, "Payout overdraft attempt", legs);
+            "idemp_overdraft",
+            "ref_overdraft",
+            JournalType.PAYOUT,
+            "Payout overdraft attempt",
+            legs);
 
     assertThatThrownBy(() -> postingEngine.post(request))
         .isInstanceOf(PayCoreException.class)
@@ -184,8 +189,7 @@ class PostingEngineTest {
   }
 
   @Test
-  @DisplayName(
-      "Invariant I5: Refunds permit SELLER_PAYABLE to go negative (seller owes platform)")
+  @DisplayName("Invariant I5: Refunds permit SELLER_PAYABLE to go negative (seller owes platform)")
   void testRefundAllowsNegativeAvailableBalance() {
     UUID merchantId = UUID.randomUUID();
     UUID providerReceivableId = UUID.randomUUID();
@@ -201,16 +205,19 @@ class PostingEngineTest {
     when(journalRepository.findByIdempotencyKey("idemp_ref_neg")).thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, providerReceivable));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
-    when(accountRepository.findByIdForUpdate(providerReceivableId)).thenReturn(Optional.of(providerReceivable));
+    when(accountRepository.findByIdForUpdate(providerReceivableId))
+        .thenReturn(Optional.of(providerReceivable));
     when(journalRepository.save(any(Journal.class)))
-        .thenAnswer(inv -> {
-          Journal j = inv.getArgument(0);
-          j.setId(UUID.randomUUID());
-          return j;
-        });
+        .thenAnswer(
+            inv -> {
+              Journal j = inv.getArgument(0);
+              j.setId(UUID.randomUUID());
+              return j;
+            });
     when(ledgerEntryRepository.save(any(LedgerEntry.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    // Refund of Rs 10 (1000 paise): merchant debited 1000 paise when balance was 200 -> new balance = -800 paise
+    // Refund of Rs 10 (1000 paise): merchant debited 1000 paise when balance was 200 -> new balance
+    // = -800 paise
     List<JournalLeg> legs =
         List.of(
             JournalLeg.debit(merchantId, Money.ofPaise(1000)),
@@ -218,7 +225,11 @@ class PostingEngineTest {
 
     JournalRequest request =
         new JournalRequest(
-            "idemp_ref_neg", "ref_neg_1", JournalType.REFUND, "Customer return negative payable", legs);
+            "idemp_ref_neg",
+            "ref_neg_1",
+            JournalType.REFUND,
+            "Customer return negative payable",
+            legs);
 
     PostingResult result = postingEngine.post(request);
 

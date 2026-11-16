@@ -19,9 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Continuous Ledger Integrity Verification Service (F-L-09).
- * Verifies Invariants I1 (double-entry balance), I3 (global zero-sum), and I4 (cached balance vs entry ledger).
- * Exposes GET /v1/integrity and runs a scheduled nightly audit.
+ * Continuous Ledger Integrity Verification Service (F-L-09). Verifies Invariants I1 (double-entry
+ * balance), I3 (global zero-sum), and I4 (cached balance vs entry ledger). Exposes GET
+ * /v1/integrity and runs a scheduled nightly audit.
  */
 @Service
 public class IntegrityService {
@@ -92,12 +92,17 @@ public class IntegrityService {
               "I3",
               "GLOBAL_LEDGER",
               "SYSTEM",
-              "Global debits (" + totalDebits + ") do not equal global credits (" + totalCredits + ")",
+              "Global debits ("
+                  + totalDebits
+                  + ") do not equal global credits ("
+                  + totalCredits
+                  + ")",
               totalDebits,
               totalCredits));
     }
 
-    // 2. Invariant I4: Cached balance = sum of entries (striped: sum of stripes; S4: snapshot + delta)
+    // 2. Invariant I4: Cached balance = sum of entries (striped: sum of stripes; S4: snapshot +
+    // delta)
     List<Account> allAccounts = accountRepository.findAll();
     for (Account account : allAccounts) {
       long calculatedBalanceFromEntries =
@@ -111,7 +116,11 @@ public class IntegrityService {
                   "I4",
                   "ACCOUNT_STRIPES",
                   account.getCode(),
-                  "Striped account sum (" + stripeSum + ") does not match entry sum (" + calculatedBalanceFromEntries + ")",
+                  "Striped account sum ("
+                      + stripeSum
+                      + ") does not match entry sum ("
+                      + calculatedBalanceFromEntries
+                      + ")",
                   calculatedBalanceFromEntries,
                   stripeSum));
         }
@@ -129,7 +138,11 @@ public class IntegrityService {
                   "I4",
                   "ACCOUNT_SNAPSHOT_DELTA",
                   account.getCode(),
-                  "S4 snapshot+delta (" + effectiveBal + ") does not match entry sum (" + calculatedBalanceFromEntries + ")",
+                  "S4 snapshot+delta ("
+                      + effectiveBal
+                      + ") does not match entry sum ("
+                      + calculatedBalanceFromEntries
+                      + ")",
                   calculatedBalanceFromEntries,
                   effectiveBal));
         }
@@ -140,14 +153,19 @@ public class IntegrityService {
                   "I4",
                   "ACCOUNT_CACHED_BALANCE",
                   account.getCode(),
-                  "Account cached balance (" + account.getBalancePaise() + ") does not match entry sum (" + calculatedBalanceFromEntries + ")",
+                  "Account cached balance ("
+                      + account.getBalancePaise()
+                      + ") does not match entry sum ("
+                      + calculatedBalanceFromEntries
+                      + ")",
                   calculatedBalanceFromEntries,
                   account.getBalancePaise()));
         }
       }
     }
 
-    // 3. Sample Invariant I1: Every journal has at least two lines, positive amounts, and debits == credits
+    // 3. Sample Invariant I1: Every journal has at least two lines, positive amounts, and debits ==
+    // credits
     List<Journal> journals = journalRepository.findAll();
     for (Journal journal : journals) {
       List<LedgerEntry> entries = ledgerEntryRepository.findByJournalId(journal.getId());
@@ -205,8 +223,10 @@ public class IntegrityService {
       integrityViolationCounter.increment(violations.size());
       log.error("Ledger integrity check failed! Found {} violations", violations.size());
     } else {
-      log.info("Ledger integrity check passed cleanly. Checked {} accounts and {} journals.",
-          allAccounts.size(), journals.size());
+      log.info(
+          "Ledger integrity check passed cleanly. Checked {} accounts and {} journals.",
+          allAccounts.size(),
+          journals.size());
     }
 
     return new IntegrityReportResponse(
@@ -228,8 +248,10 @@ public class IntegrityService {
   }
 
   private long calculateAccountBalanceFromEntries(UUID accountId, AccountType type) {
-    Long drSum = ledgerEntryRepository.sumAmountByAccountIdAndDirection(accountId, EntryDirection.DR);
-    Long crSum = ledgerEntryRepository.sumAmountByAccountIdAndDirection(accountId, EntryDirection.CR);
+    Long drSum =
+        ledgerEntryRepository.sumAmountByAccountIdAndDirection(accountId, EntryDirection.DR);
+    Long crSum =
+        ledgerEntryRepository.sumAmountByAccountIdAndDirection(accountId, EntryDirection.CR);
     long dr = drSum != null ? drSum : 0L;
     long cr = crSum != null ? crSum : 0L;
     boolean debitNormal = (type == AccountType.ASSET || type == AccountType.EXPENSE);
@@ -237,8 +259,12 @@ public class IntegrityService {
   }
 
   private long calculateDeltaAfterEntryId(UUID accountId, AccountType type, long afterEntryId) {
-    Long drSum = ledgerEntryRepository.sumAmountByAccountIdAndDirectionAndIdGreaterThan(accountId, EntryDirection.DR, afterEntryId);
-    Long crSum = ledgerEntryRepository.sumAmountByAccountIdAndDirectionAndIdGreaterThan(accountId, EntryDirection.CR, afterEntryId);
+    Long drSum =
+        ledgerEntryRepository.sumAmountByAccountIdAndDirectionAndIdGreaterThan(
+            accountId, EntryDirection.DR, afterEntryId);
+    Long crSum =
+        ledgerEntryRepository.sumAmountByAccountIdAndDirectionAndIdGreaterThan(
+            accountId, EntryDirection.CR, afterEntryId);
     long dr = drSum != null ? drSum : 0L;
     long cr = crSum != null ? crSum : 0L;
     boolean debitNormal = (type == AccountType.ASSET || type == AccountType.EXPENSE);

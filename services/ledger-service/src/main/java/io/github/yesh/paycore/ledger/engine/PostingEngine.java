@@ -180,7 +180,8 @@ public class PostingEngine {
     }
 
     // Invariant I5: Payout requests never exceed available SELLER_PAYABLE.
-    // Note: SELLER_PAYABLE may go negative through refund or dispute/adjustment journals (the seller owes the platform);
+    // Note: SELLER_PAYABLE may go negative through refund or dispute/adjustment journals (the
+    // seller owes the platform);
     // only payout requests and non-refund operations may never overdraw available payable.
     if (request.type() != JournalType.REFUND && request.type() != JournalType.ADJUSTMENT) {
       for (UUID id : accountIds) {
@@ -188,7 +189,8 @@ public class PostingEngine {
         long netDelta = computeNetDelta(account.getType(), request.legs(), id);
         long prospectiveBalance = account.getBalancePaise() + netDelta;
 
-        if (account.getCode().startsWith("MERCHANT_") || account.getType() == AccountType.LIABILITY) {
+        if (account.getCode().startsWith("MERCHANT_")
+            || account.getType() == AccountType.LIABILITY) {
           long available = prospectiveBalance - account.getLockedBalancePaise();
           if (available < 0) {
             throw new PayCoreException(
@@ -206,10 +208,14 @@ public class PostingEngine {
       }
     }
 
-    // Persist Journal
+    // Persist Journal with caller scope
     Journal journal =
         new Journal(
-            request.idempotencyKey(), request.referenceId(), request.type(), request.description());
+            request.scope(),
+            request.idempotencyKey(),
+            request.referenceId(),
+            request.type(),
+            request.description());
     Journal savedJournal = journalRepository.save(journal);
 
     // Apply legs and create immutable Ledger Entries (Invariant I2 & I8)

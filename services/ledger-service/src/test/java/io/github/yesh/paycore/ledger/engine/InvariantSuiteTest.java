@@ -12,11 +12,7 @@ import io.github.yesh.paycore.ledger.domain.*;
 import io.github.yesh.paycore.ledger.dto.*;
 import io.github.yesh.paycore.ledger.idempotency.IdempotencyService;
 import io.github.yesh.paycore.ledger.repository.*;
-import io.github.yesh.paycore.ledger.service.HoldService;
-import io.github.yesh.paycore.ledger.service.PaymentService;
-import io.github.yesh.paycore.ledger.service.PayoutService;
 import io.github.yesh.paycore.ledger.service.RefundService;
-import io.github.yesh.paycore.ledger.service.SystemAccountInitializer;
 import io.github.yesh.paycore.ledger.strategy.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -31,9 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
-/**
- * Verification test suite for Invariants I1 through I8 across all posting strategies.
- */
+/** Verification test suite for Invariants I1 through I8 across all posting strategies. */
 @ExtendWith(MockitoExtension.class)
 class InvariantSuiteTest {
 
@@ -124,15 +118,18 @@ class InvariantSuiteTest {
       when(accountRepository.findByIdForUpdate(providerId)).thenReturn(Optional.of(provider));
       when(accountRepository.findByIdForUpdate(feeId)).thenReturn(Optional.of(fee));
     } else if (type == StrategyType.S2_STRIPED) {
-      when(accountStripeRepository.findStripeForUpdate(any(), anyInt())).thenReturn(Optional.empty());
-      when(accountStripeRepository.save(any(AccountStripe.class))).thenAnswer(inv -> inv.getArgument(0));
+      when(accountStripeRepository.findStripeForUpdate(any(), anyInt()))
+          .thenReturn(Optional.empty());
+      when(accountStripeRepository.save(any(AccountStripe.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
     }
     when(journalRepository.save(any(Journal.class)))
-        .thenAnswer(inv -> {
-          Journal j = inv.getArgument(0);
-          j.setId(UUID.randomUUID());
-          return j;
-        });
+        .thenAnswer(
+            inv -> {
+              Journal j = inv.getArgument(0);
+              j.setId(UUID.randomUUID());
+              return j;
+            });
     when(ledgerEntryRepository.save(any(LedgerEntry.class))).thenAnswer(inv -> inv.getArgument(0));
 
     // Capture payment: Rs 100 gross = Rs 98 merchant + Rs 2 fee
@@ -150,8 +147,16 @@ class InvariantSuiteTest {
     assertThat(result.journal()).isNotNull();
     assertThat(result.entries()).hasSize(3);
 
-    long totalDr = result.entries().stream().filter(e -> e.getDirection() == EntryDirection.DR).mapToLong(LedgerEntry::getAmountPaise).sum();
-    long totalCr = result.entries().stream().filter(e -> e.getDirection() == EntryDirection.CR).mapToLong(LedgerEntry::getAmountPaise).sum();
+    long totalDr =
+        result.entries().stream()
+            .filter(e -> e.getDirection() == EntryDirection.DR)
+            .mapToLong(LedgerEntry::getAmountPaise)
+            .sum();
+    long totalCr =
+        result.entries().stream()
+            .filter(e -> e.getDirection() == EntryDirection.CR)
+            .mapToLong(LedgerEntry::getAmountPaise)
+            .sum();
     assertThat(totalDr).isEqualTo(totalCr).isEqualTo(10000L);
   }
 
@@ -169,7 +174,8 @@ class InvariantSuiteTest {
             JournalLeg.debit(acc1, Money.ofPaise(1000)),
             JournalLeg.credit(acc2, Money.ofPaise(900)));
     JournalRequest req1 =
-        new JournalRequest("idemp_bad_bal", "ref", JournalType.PAYMENT, "unbalanced", unbalancedLegs);
+        new JournalRequest(
+            "idemp_bad_bal", "ref", JournalType.PAYMENT, "unbalanced", unbalancedLegs);
 
     assertThatThrownBy(() -> strategy.post(req1))
         .isInstanceOf(PayCoreException.class)
@@ -206,15 +212,18 @@ class InvariantSuiteTest {
     if (type == StrategyType.S0_PESSIMISTIC || type == StrategyType.S1_LATE_LOCK) {
       when(accountRepository.findByIdForUpdate(providerId)).thenReturn(Optional.of(provider));
     } else if (type == StrategyType.S2_STRIPED) {
-      when(accountStripeRepository.findStripeForUpdate(any(), anyInt())).thenReturn(Optional.empty());
-      when(accountStripeRepository.save(any(AccountStripe.class))).thenAnswer(inv -> inv.getArgument(0));
+      when(accountStripeRepository.findStripeForUpdate(any(), anyInt()))
+          .thenReturn(Optional.empty());
+      when(accountStripeRepository.save(any(AccountStripe.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
     }
     when(journalRepository.save(any(Journal.class)))
-        .thenAnswer(inv -> {
-          Journal j = inv.getArgument(0);
-          j.setId(UUID.randomUUID());
-          return j;
-        });
+        .thenAnswer(
+            inv -> {
+              Journal j = inv.getArgument(0);
+              j.setId(UUID.randomUUID());
+              return j;
+            });
     when(ledgerEntryRepository.save(any(LedgerEntry.class))).thenAnswer(inv -> inv.getArgument(0));
 
     // Refund of Rs 50 (5000 paise): merchant balance drops from +100 to -4900 paise
@@ -224,7 +233,12 @@ class InvariantSuiteTest {
             JournalLeg.credit(providerId, Money.ofPaise(5000)));
 
     JournalRequest refundRequest =
-        new JournalRequest("idemp_neg_" + type, "ref_neg", JournalType.REFUND, "Negative payable refund", refundLegs);
+        new JournalRequest(
+            "idemp_neg_" + type,
+            "ref_neg",
+            JournalType.REFUND,
+            "Negative payable refund",
+            refundLegs);
 
     PostingResult result = strategy.post(refundRequest);
 
@@ -234,7 +248,8 @@ class InvariantSuiteTest {
 
   @ParameterizedTest
   @EnumSource(StrategyType.class)
-  @DisplayName("Invariant I5: Payout request overdrawing available SELLER_PAYABLE is rejected with 422")
+  @DisplayName(
+      "Invariant I5: Payout request overdrawing available SELLER_PAYABLE is rejected with 422")
   void testInvariantI5PayoutOverdraftRejected(StrategyType type) {
     PostingStrategy strategy = getStrategy(type);
 
@@ -252,7 +267,8 @@ class InvariantSuiteTest {
     when(journalRepository.findByIdempotencyKey("idemp_payout_bad")).thenReturn(Optional.empty());
     when(accountRepository.findByIdIn(any())).thenReturn(List.of(merchant, payoutTransit));
     when(accountRepository.findByIdForUpdate(merchantId)).thenReturn(Optional.of(merchant));
-    when(accountRepository.findByIdForUpdate(payoutTransitId)).thenReturn(Optional.of(payoutTransit));
+    when(accountRepository.findByIdForUpdate(payoutTransitId))
+        .thenReturn(Optional.of(payoutTransit));
 
     // Payout attempt of Rs 25 (2500 paise), but available is only Rs 20 (2000 paise)
     List<JournalLeg> legs =
@@ -261,7 +277,8 @@ class InvariantSuiteTest {
             JournalLeg.credit(payoutTransitId, Money.ofPaise(2500)));
 
     JournalRequest request =
-        new JournalRequest("idemp_payout_bad", "payout_1", JournalType.PAYOUT, "Overdraw attempt", legs);
+        new JournalRequest(
+            "idemp_payout_bad", "payout_1", JournalType.PAYOUT, "Overdraw attempt", legs);
 
     assertThatThrownBy(() -> strategy.post(request))
         .isInstanceOf(PayCoreException.class)
@@ -274,9 +291,12 @@ class InvariantSuiteTest {
     Journal existingJournal =
         new Journal("idemp_unique_key", "ref_original", JournalType.PAYMENT, "Original post");
     existingJournal.setId(UUID.randomUUID());
-    LedgerEntry entry = new LedgerEntry(existingJournal.getId(), UUID.randomUUID(), EntryDirection.DR, 5000L, 5000L);
+    LedgerEntry entry =
+        new LedgerEntry(
+            existingJournal.getId(), UUID.randomUUID(), EntryDirection.DR, 5000L, 5000L);
 
-    when(journalRepository.findByIdempotencyKey("idemp_unique_key")).thenReturn(Optional.of(existingJournal));
+    when(journalRepository.findByIdempotencyKey("idemp_unique_key"))
+        .thenReturn(Optional.of(existingJournal));
     when(ledgerEntryRepository.findByJournalId(existingJournal.getId())).thenReturn(List.of(entry));
 
     JournalRequest req =
@@ -285,7 +305,9 @@ class InvariantSuiteTest {
             "ref_original",
             JournalType.PAYMENT,
             "Replay attempt",
-            List.of(JournalLeg.debit(UUID.randomUUID(), Money.ofPaise(5000)), JournalLeg.credit(UUID.randomUUID(), Money.ofPaise(5000))));
+            List.of(
+                JournalLeg.debit(UUID.randomUUID(), Money.ofPaise(5000)),
+                JournalLeg.credit(UUID.randomUUID(), Money.ofPaise(5000))));
 
     PostingResult result = postingEngine.post(req);
 
@@ -297,19 +319,40 @@ class InvariantSuiteTest {
   @Test
   @DisplayName("Invariant I7: Total refunds for a payment never exceed gross captured amount")
   void testInvariantI7RefundLimit() {
-    IdempotencyService idempService = new IdempotencyService(idempotencyRecordRepository, objectMapper);
+    IdempotencyService idempService =
+        new IdempotencyService(idempotencyRecordRepository, objectMapper);
     PostingStrategyRouter router = new PostingStrategyRouter(List.of(s0), "S0_PESSIMISTIC");
     RefundService refundService =
-        new RefundService(refundRepository, paymentRepository, sellerRepository, accountRepository, router, idempService);
+        new RefundService(
+            refundRepository,
+            paymentRepository,
+            sellerRepository,
+            accountRepository,
+            router,
+            idempService);
 
     Seller seller = new Seller("seller_limit", "Limit Merchant", "STANDARD", 200);
     Payment payment =
-        new Payment("pay_limit", "seller_limit", 10000L, 200L, 9800L, PaymentStatus.CAPTURED, UUID.randomUUID());
+        new Payment(
+            "pay_limit",
+            "seller_limit",
+            10000L,
+            200L,
+            9800L,
+            PaymentStatus.CAPTURED,
+            UUID.randomUUID());
 
     when(paymentRepository.findByPaymentId("pay_limit")).thenReturn(Optional.of(payment));
 
     // Refund 1: Rs 60 out of Rs 100
-    Refund r1 = new Refund("ref_lim_1", "pay_limit", 6000L, "First return", RefundStatus.SUCCEEDED, UUID.randomUUID());
+    Refund r1 =
+        new Refund(
+            "ref_lim_1",
+            "pay_limit",
+            6000L,
+            "First return",
+            RefundStatus.SUCCEEDED,
+            UUID.randomUUID());
     when(refundRepository.findByPaymentId("pay_limit")).thenReturn(List.of(r1));
 
     // Refund 2: Attempt Rs 50 (total would be 110 > 100) -> must throw 400
@@ -321,7 +364,8 @@ class InvariantSuiteTest {
   }
 
   @Test
-  @DisplayName("Concurrent Posting: Multi-threaded execution produces zero deadlocks and consistent balances")
+  @DisplayName(
+      "Concurrent Posting: Multi-threaded execution produces zero deadlocks and consistent balances")
   void testConcurrentPostingZeroDeadlocks() throws InterruptedException {
     int threadCount = 8;
     int iterationsPerThread = 25;
@@ -347,40 +391,42 @@ class InvariantSuiteTest {
     when(accountRepository.findByIdForUpdate(feeId)).thenReturn(Optional.of(fee));
     when(journalRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
     when(journalRepository.save(any(Journal.class)))
-        .thenAnswer(inv -> {
-          Journal j = inv.getArgument(0);
-          j.setId(UUID.randomUUID());
-          return j;
-        });
+        .thenAnswer(
+            inv -> {
+              Journal j = inv.getArgument(0);
+              j.setId(UUID.randomUUID());
+              return j;
+            });
     when(ledgerEntryRepository.save(any(LedgerEntry.class))).thenAnswer(inv -> inv.getArgument(0));
 
     for (int i = 0; i < threadCount; i++) {
       final int threadIdx = i;
-      executor.submit(() -> {
-        try {
-          startLatch.await();
-          for (int j = 0; j < iterationsPerThread; j++) {
-            List<JournalLeg> legs =
-                List.of(
-                    JournalLeg.debit(providerId, Money.ofPaise(1000)),
-                    JournalLeg.credit(merchantId, Money.ofPaise(980)),
-                    JournalLeg.credit(feeId, Money.ofPaise(20)));
-            JournalRequest req =
-                new JournalRequest(
-                    "thread_" + threadIdx + "_run_" + j,
-                    "ref_" + threadIdx + "_" + j,
-                    JournalType.PAYMENT,
-                    "Concurrent capture",
-                    legs);
-            postingEngine.post(req);
-            successCount.incrementAndGet();
-          }
-        } catch (Exception e) {
-          // Failure
-        } finally {
-          doneLatch.countDown();
-        }
-      });
+      executor.submit(
+          () -> {
+            try {
+              startLatch.await();
+              for (int j = 0; j < iterationsPerThread; j++) {
+                List<JournalLeg> legs =
+                    List.of(
+                        JournalLeg.debit(providerId, Money.ofPaise(1000)),
+                        JournalLeg.credit(merchantId, Money.ofPaise(980)),
+                        JournalLeg.credit(feeId, Money.ofPaise(20)));
+                JournalRequest req =
+                    new JournalRequest(
+                        "thread_" + threadIdx + "_run_" + j,
+                        "ref_" + threadIdx + "_" + j,
+                        JournalType.PAYMENT,
+                        "Concurrent capture",
+                        legs);
+                postingEngine.post(req);
+                successCount.incrementAndGet();
+              }
+            } catch (Exception e) {
+              // Failure
+            } finally {
+              doneLatch.countDown();
+            }
+          });
     }
 
     startLatch.countDown();
@@ -392,7 +438,8 @@ class InvariantSuiteTest {
   }
 
   @Test
-  @DisplayName("Fee Arithmetic Boundary: 1 paisa, odd paise, and zero/100% fee cases balance exactly")
+  @DisplayName(
+      "Fee Arithmetic Boundary: 1 paisa, odd paise, and zero/100% fee cases balance exactly")
   void testFeeArithmeticBoundaries() {
     // 1 paisa gross with 200 bps fee
     Money onePaisa = Money.ofPaise(1L);

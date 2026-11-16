@@ -7,8 +7,19 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 public record JournalRequest(
+    String scope,
     @NotBlank String idempotencyKey,
     String referenceId,
     @NotNull JournalType type,
     String description,
-    @NotEmpty List<JournalLeg> legs) {}
+    @NotEmpty List<JournalLeg> legs) {
+
+  public JournalRequest(
+      String idempotencyKey,
+      String referenceId,
+      JournalType type,
+      String description,
+      List<JournalLeg> legs) {
+    this("global", idempotencyKey, referenceId, type, description, legs);
+  }
+}

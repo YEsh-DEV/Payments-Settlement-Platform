@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Provisions standard system accounts per Chart of Accounts (Playbook Section 3.2).
- * Hot accounts (PROVIDER_RECEIVABLE, PLATFORM_FEE_REVENUE) are configured with default 16 stripes (S2).
+ * Provisions standard system accounts per Chart of Accounts (Playbook Section 3.2). Hot accounts
+ * (PROVIDER_RECEIVABLE, PLATFORM_FEE_REVENUE) are configured with default 16 stripes (S2).
  */
 @Component
 public class SystemAccountInitializer implements ApplicationRunner {
@@ -68,7 +68,12 @@ public class SystemAccountInitializer implements ApplicationRunner {
         .findByCode(code)
         .orElseGet(
             () -> {
-              log.info("Provisioning system account: {} ({}, isHot={}, stripes={})", code, type, isHot, stripeCount);
+              log.info(
+                  "Provisioning system account: {} ({}, isHot={}, stripes={})",
+                  code,
+                  type,
+                  isHot,
+                  stripeCount);
               Account account = new Account(code, type, isHot, stripeCount);
               return accountRepository.save(account);
             });

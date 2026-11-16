@@ -11,5 +11,7 @@ public interface JournalRepository extends JpaRepository<Journal, UUID> {
 
   Optional<Journal> findByIdempotencyKey(String idempotencyKey);
 
+  Optional<Journal> findByScopeAndIdempotencyKey(String scope, String idempotencyKey);
+
   Optional<Journal> findByReferenceId(String referenceId);
 }

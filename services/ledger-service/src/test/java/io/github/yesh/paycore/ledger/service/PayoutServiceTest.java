@@ -124,8 +124,7 @@ class PayoutServiceTest {
         new Account(SystemAccountInitializer.PAYOUT_IN_TRANSIT, AccountType.LIABILITY, false, 1);
     settlementPayable.setId(UUID.randomUUID());
 
-    Account bankCash =
-        new Account(SystemAccountInitializer.BANK_CASH, AccountType.ASSET, false, 1);
+    Account bankCash = new Account(SystemAccountInitializer.BANK_CASH, AccountType.ASSET, false, 1);
     bankCash.setId(UUID.randomUUID());
 
     when(payoutRepository.findByPayoutId("payout_1")).thenReturn(Optional.of(payout));

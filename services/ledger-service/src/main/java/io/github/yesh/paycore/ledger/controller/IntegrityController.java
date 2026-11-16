@@ -7,9 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Controller exposing continuous ledger integrity check endpoint (F-L-09).
- */
+/** Controller exposing continuous ledger integrity check endpoint (F-L-09). */
 @RestController
 @RequestMapping({"/v1/integrity", "/integrity"})
 public class IntegrityController {

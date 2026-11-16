@@ -3,7 +3,6 @@ package io.github.yesh.paycore.ledger.idempotency;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.yesh.paycore.common.error.PayCoreException;
-import io.github.yesh.paycore.ledger.domain.IdempotencyKeyId;
 import io.github.yesh.paycore.ledger.domain.IdempotencyRecord;
 import io.github.yesh.paycore.ledger.domain.IdempotencyStatus;
 import io.github.yesh.paycore.ledger.repository.IdempotencyRecordRepository;
@@ -30,13 +29,11 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
- * Robust Idempotency Service adhering to Playbook Section 8.2:
- * - Scoped by caller identity from authentication token.
- * - HTTP 409 request_in_progress when key is in-flight.
- * - HTTP 422 idempotency_key_reused when payload hash mismatches.
- * - Stale in-flight takeover after 60s timeout.
- * - Response header Idempotent-Replayed: true upon cache replay.
- * - 7-day TTL cleanup scheduled daemon.
+ * Robust Idempotency Service adhering to Playbook Section 8.2: - Scoped by caller identity from
+ * authentication token. - HTTP 409 request_in_progress when key is in-flight. - HTTP 422
+ * idempotency_key_reused when payload hash mismatches. - Stale in-flight takeover after 60s
+ * timeout. - Response header Idempotent-Replayed: true upon cache replay. - 7-day TTL cleanup
+ * scheduled daemon.
  */
 @Service
 public class IdempotencyService {
@@ -83,9 +80,14 @@ public class IdempotencyService {
 
       if (record.getStatus() == IdempotencyStatus.IN_FLIGHT) {
         // Stale in-flight recovery after 60 seconds
-        if (record.getCreatedAt().isBefore(Instant.now().minusSeconds(STALE_IN_FLIGHT_TIMEOUT_SECONDS))) {
-          log.warn("Taking over stale in-flight idempotency key {} (scoped: {}) created at {}",
-              key, resolvedScope, record.getCreatedAt());
+        if (record
+            .getCreatedAt()
+            .isBefore(Instant.now().minusSeconds(STALE_IN_FLIGHT_TIMEOUT_SECONDS))) {
+          log.warn(
+              "Taking over stale in-flight idempotency key {} (scoped: {}) created at {}",
+              key,
+              resolvedScope,
+              record.getCreatedAt());
           takeOverStaleKey(resolvedScope, key, requestHash);
         } else {
           throw new PayCoreException(
@@ -94,9 +96,13 @@ public class IdempotencyService {
               "A request with this idempotency key is currently processing");
         }
       } else if (record.getStatus() == IdempotencyStatus.FAILED) {
-        log.info("Retrying previously interrupted or failed idempotency key {} (scoped: {})", key, resolvedScope);
+        log.info(
+            "Retrying previously interrupted or failed idempotency key {} (scoped: {})",
+            key,
+            resolvedScope);
         takeOverStaleKey(resolvedScope, key, requestHash);
-      } else if (record.getStatus() == IdempotencyStatus.COMPLETED && record.getResponseBody() != null) {
+      } else if (record.getStatus() == IdempotencyStatus.COMPLETED
+          && record.getResponseBody() != null) {
         markReplayedHeader();
         return deserialize(record.getResponseBody(), responseClass);
       }
@@ -162,7 +168,7 @@ public class IdempotencyService {
             });
   }
 
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  @Transactional(propagation = Propagation.REQUIRED)
   public void completeKey(String scope, String key, String responseJson) {
     repository
         .findByScopeAndKey(scope, key)
@@ -185,12 +191,18 @@ public class IdempotencyService {
             });
   }
 
-  @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+  @org.springframework.context.event.EventListener(
+      org.springframework.boot.context.event.ApplicationReadyEvent.class)
   @Transactional
   public int recoverOrphanedInFlightKeysOnStartup() {
-    int updated = repository.updateStatusByStatus(IdempotencyStatus.IN_FLIGHT, IdempotencyStatus.FAILED);
+    Instant safetyCutoff = Instant.now().minus(5, ChronoUnit.SECONDS);
+    int updated =
+        repository.updateStatusByStatusAndCreatedAtBefore(
+            IdempotencyStatus.IN_FLIGHT, IdempotencyStatus.FAILED, safetyCutoff);
     if (updated > 0) {
-      log.info("Crash recovery: reset {} orphaned IN_FLIGHT idempotency keys to FAILED for safe client replay", updated);
+      log.info(
+          "Crash recovery: reset {} orphaned IN_FLIGHT idempotency keys to FAILED for safe client replay",
+          updated);
     }
     return updated;
   }
@@ -199,8 +211,9 @@ public class IdempotencyService {
   @Transactional
   public int cleanExpiredRecords() {
     Instant cutoff = Instant.now().minus(7, ChronoUnit.DAYS);
-    int deleted = repository.deleteByStatusInAndCreatedAtBefore(
-        List.of(IdempotencyStatus.COMPLETED, IdempotencyStatus.FAILED), cutoff);
+    int deleted =
+        repository.deleteByStatusInAndCreatedAtBefore(
+            List.of(IdempotencyStatus.COMPLETED, IdempotencyStatus.FAILED), cutoff);
     log.info("Idempotency cleanup sweep completed. Purged {} records older than 7 days.", deleted);
     return deleted;
   }
@@ -208,7 +221,10 @@ public class IdempotencyService {
   public String resolveCurrentScope() {
     try {
       Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-      if (auth != null && auth.isAuthenticated() && auth.getName() != null && !auth.getName().isBlank()) {
+      if (auth != null
+          && auth.isAuthenticated()
+          && auth.getName() != null
+          && !auth.getName().isBlank()) {
         return auth.getName();
       }
     } catch (Exception ignored) {

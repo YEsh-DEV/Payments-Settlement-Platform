@@ -9,8 +9,7 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "idempotency_keys")
 public class IdempotencyRecord {
 
-  @EmbeddedId
-  private IdempotencyKeyId id;
+  @EmbeddedId private IdempotencyKeyId id;
 
   @Column(name = "request_hash", nullable = false, length = 64)
   private String requestHash;

@@ -6,5 +6,4 @@ public record IntegrityViolation(
     String entityId,
     String description,
     long expectedValue,
-    long actualValue
-) {}
+    long actualValue) {}

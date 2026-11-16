@@ -12,5 +12,4 @@ public record IntegrityReportResponse(
     long totalCreditsPaise,
     long deltaPaise,
     List<IntegrityViolation> violations,
-    Instant checkedAt
-) {}
+    Instant checkedAt) {}

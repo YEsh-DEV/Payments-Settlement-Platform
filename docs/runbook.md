@@ -10,7 +10,7 @@ Standard Operating Procedures (SOPs) for operating, maintaining, recovering, and
 2. [SOP-02: Provider Settlement File Ingestion & Recovery](#sop-02-provider-settlement-file-ingestion--recovery)
 3. [SOP-03: Discrepancy Case Escalation & Maker-Checker Resolution](#sop-03-discrepancy-case-escalation--maker-checker-resolution)
 4. [SOP-04: Disaster Recovery & SIGKILL Crash Recovery Verification](#sop-04-disaster-recovery--sigkill-crash-recovery-verification)
-5. [SOP-05: Hot-Account Strategy Dynamic Switching](#sop-05-hot-account-strategy-dynamic-switching)
+5. [SOP-05: Hot-Account Strategy Configuration](#sop-05-hot-account-strategy-configuration-requires-service-restart)
 6. [SOP-06: Mathematical Invariant Auditing (Invariants I1–I8)](#sop-06-mathematical-invariant-auditing-invariants-i1i8)
 
 ---

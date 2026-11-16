@@ -63,8 +63,10 @@ class SigkillRecoveryVerificationTest {
     sellerPayable.setBalancePaise(50000L);
 
     when(journalRepository.findByIdempotencyKey("idemp_crash")).thenReturn(Optional.empty());
-    when(accountRepository.findByIdIn(any())).thenReturn(List.of(providerReceivable, sellerPayable));
-    when(accountRepository.findByIdForUpdate(sellerPayableId)).thenReturn(Optional.of(sellerPayable));
+    when(accountRepository.findByIdIn(any()))
+        .thenReturn(List.of(providerReceivable, sellerPayable));
+    when(accountRepository.findByIdForUpdate(sellerPayableId))
+        .thenReturn(Optional.of(sellerPayable));
     when(accountRepository.findByIdForUpdate(providerReceivableId))
         .thenReturn(Optional.of(providerReceivable));
 
@@ -80,7 +82,8 @@ class SigkillRecoveryVerificationTest {
     when(ledgerEntryRepository.save(any(LedgerEntry.class)))
         .thenAnswer(inv -> inv.getArgument(0)) // 1st leg succeeds
         .thenThrow(
-            new RuntimeException("Simulated JVM crash / SIGKILL mid-transaction")); // 2nd leg crashes
+            new RuntimeException(
+                "Simulated JVM crash / SIGKILL mid-transaction")); // 2nd leg crashes
 
     List<JournalLeg> legs =
         List.of(
@@ -115,8 +118,10 @@ class SigkillRecoveryVerificationTest {
     sellerPayable.setId(sellerPayableId);
     sellerPayable.setBalancePaise(50000L);
 
-    when(accountRepository.findByIdIn(any())).thenReturn(List.of(providerReceivable, sellerPayable));
-    when(accountRepository.findByIdForUpdate(sellerPayableId)).thenReturn(Optional.of(sellerPayable));
+    when(accountRepository.findByIdIn(any()))
+        .thenReturn(List.of(providerReceivable, sellerPayable));
+    when(accountRepository.findByIdForUpdate(sellerPayableId))
+        .thenReturn(Optional.of(sellerPayable));
     when(accountRepository.findByIdForUpdate(providerReceivableId))
         .thenReturn(Optional.of(providerReceivable));
 
@@ -160,7 +165,8 @@ class SigkillRecoveryVerificationTest {
     assertThat(result.journal()).isNotNull();
     assertThat(result.journal().getIdempotencyKey()).isEqualTo("idemp_replay_01");
 
-    // Exactly one journal and outbox event persisted on successful replay (save invoked twice: 1 failed, 1 committed)
+    // Exactly one journal and outbox event persisted on successful replay (save invoked twice: 1
+    // failed, 1 committed)
     verify(journalRepository, times(2)).save(any(Journal.class));
     verify(outboxEventRepository, times(1)).save(any(OutboxEvent.class));
   }
@@ -171,7 +177,8 @@ class SigkillRecoveryVerificationTest {
   void testCrashAfterCommitReturnsExistingJournalOnReplay() {
     UUID existingJournalId = UUID.randomUUID();
     Journal existingJournal =
-        new Journal("idemp_committed_crash", "ref_comm", JournalType.PAYMENT, "Pre-crash committed");
+        new Journal(
+            "idemp_committed_crash", "ref_comm", JournalType.PAYMENT, "Pre-crash committed");
     existingJournal.setId(existingJournalId);
 
     // Journal repository already has the committed journal from before the process crashed
@@ -197,7 +204,8 @@ class SigkillRecoveryVerificationTest {
   }
 
   @Test
-  @DisplayName("50 Crash-and-Recovery Cycles: Global zero-sum (I3) and uniqueness (I6, I8) hold across 50 iterations")
+  @DisplayName(
+      "50 Crash-and-Recovery Cycles: Global zero-sum (I3) and uniqueness (I6, I8) hold across 50 iterations")
   void testFiftyIterationsCrashAndRecoveryInvariants() {
     Map<String, Journal> committedJournals = new HashMap<>();
     Map<UUID, Long> accountBalances = new HashMap<>();
@@ -230,10 +238,8 @@ class SigkillRecoveryVerificationTest {
         committedJournals.put(key, j);
 
         // DR PROVIDER_RECEIVABLE, CR SELLER_PAYABLE, CR PLATFORM_FEE_REVENUE
-        accountBalances.put(
-            providerReceivable, accountBalances.get(providerReceivable) + gross);
-        accountBalances.put(
-            sellerPayable, accountBalances.get(sellerPayable) + sellerNet);
+        accountBalances.put(providerReceivable, accountBalances.get(providerReceivable) + gross);
+        accountBalances.put(sellerPayable, accountBalances.get(sellerPayable) + sellerNet);
         accountBalances.put(feeRevenue, accountBalances.get(feeRevenue) + fee);
 
         outbox.add(new OutboxEvent("Payment", "pay_" + iter, "PaymentCaptured", "{}"));
@@ -261,5 +267,38 @@ class SigkillRecoveryVerificationTest {
 
     assertThat(committedJournals).hasSize(50);
     assertThat(outbox).hasSize(50);
+  }
+
+  @Test
+  @DisplayName(
+      "Assertion F: Replaying request that succeeded before kill returns stored response with zero second journal")
+  void testAssertionFReplayPreKillSuccessProducesNoSecondJournal() {
+    UUID existingJournalId = UUID.randomUUID();
+    String key = "idemp_pre_kill_success";
+    Journal existingJournal =
+        new Journal("global", key, "pay_ref_pre_kill", JournalType.PAYMENT, "Pre-kill committed");
+    existingJournal.setId(existingJournalId);
+
+    when(journalRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(existingJournal));
+
+    List<JournalLeg> legs =
+        List.of(
+            JournalLeg.debit(UUID.randomUUID(), Money.ofPaise(10000)),
+            JournalLeg.credit(UUID.randomUUID(), Money.ofPaise(10000)));
+
+    JournalRequest request =
+        new JournalRequest(
+            key, "pay_ref_pre_kill", JournalType.PAYMENT, "Pre-kill committed", legs);
+
+    // Replay after crash
+    PostingResult result = postingEngine.post(request);
+
+    assertThat(result.journal().getId()).isEqualTo(existingJournalId);
+    assertThat(result.journal().getIdempotencyKey()).isEqualTo(key);
+
+    // Zero second journal inserted into DB
+    verify(journalRepository, never()).save(any(Journal.class));
+    verify(ledgerEntryRepository, never()).save(any(LedgerEntry.class));
+    verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
   }
 }

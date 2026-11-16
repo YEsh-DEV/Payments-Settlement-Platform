@@ -5,9 +5,7 @@ import jakarta.persistence.Embeddable;
 import java.io.Serializable;
 import java.util.Objects;
 
-/**
- * Composite key for IdempotencyRecord scoped by caller identity.
- */
+/** Composite key for IdempotencyRecord scoped by caller identity. */
 @Embeddable
 public class IdempotencyKeyId implements Serializable {
 
