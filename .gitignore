@@ -58,3 +58,4 @@ ehthumbs.db
 # Testcontainers & Benchmarks
 .testcontainers/
 perf/results/*.raw.json
+*.rdb

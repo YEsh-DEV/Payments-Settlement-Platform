@@ -188,7 +188,7 @@ public class AuthService {
     }
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public JwtTokenService.AccessTokenResult authenticateServiceClient(
       String clientId, String clientSecret) {
     ServiceClient client =
@@ -215,9 +215,17 @@ public class AuthService {
   }
 
   private void audit(String actor, String action, String entity, String entityId, String details) {
+    String jsonDetails;
+    if (details == null) {
+      jsonDetails = "{}";
+    } else if (details.trim().startsWith("{") || details.trim().startsWith("[")) {
+      jsonDetails = details;
+    } else {
+      jsonDetails = "{\"message\":\"" + details.replace("\"", "\\\"") + "\"}";
+    }
     AuditLog log =
         new AuditLog(
-            actor, action, entity, entityId, details, RequestIdFilter.getCurrentRequestId());
+            actor, action, entity, entityId, jsonDetails, RequestIdFilter.getCurrentRequestId());
     auditLogRepository.save(log);
   }
 }

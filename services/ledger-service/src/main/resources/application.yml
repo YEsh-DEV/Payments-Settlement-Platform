@@ -30,6 +30,9 @@ spring:
       timeout: 2000ms
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    admin:
+      auto-create: false
+      fail-fast: false
     consumer:
       group-id: ledger-group
       auto-offset-reset: earliest

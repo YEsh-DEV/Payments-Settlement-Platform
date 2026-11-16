@@ -79,6 +79,18 @@ public class ProviderSettlementFile {
     this.status = status;
   }
 
+  public void setFileHash(String fileHash) {
+    this.fileHash = fileHash;
+  }
+
+  public void setTotalRecords(int totalRecords) {
+    this.totalRecords = totalRecords;
+  }
+
+  public void setTotalAmountPaise(long totalAmountPaise) {
+    this.totalAmountPaise = totalAmountPaise;
+  }
+
   public Instant getIngestedAt() {
     return ingestedAt;
   }
