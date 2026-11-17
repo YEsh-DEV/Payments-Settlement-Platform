@@ -100,4 +100,33 @@ class RedisRateLimiterFilterTest {
     assertThat(response.getContentAsString())
         .contains("Security rate limiting service unavailable. Mutating requests fail-closed.");
   }
+
+  @Test
+  @DisplayName(
+      "Playbook requirement: When Redis is down, reads, jwks and health endpoints continue working")
+  void testReadsAndJwksWorkWhenRedisIsDown() throws Exception {
+    when(valueOperations.increment(anyString()))
+        .thenThrow(new RedisConnectionFailureException("Connection refused to Redis port 6379"));
+
+    // 1. GET /.well-known/jwks.json
+    MockHttpServletRequest jwksReq = new MockHttpServletRequest("GET", "/.well-known/jwks.json");
+    MockHttpServletResponse jwksResp = new MockHttpServletResponse();
+    filter.doFilter(jwksReq, jwksResp, filterChain);
+    verify(filterChain).doFilter(jwksReq, jwksResp);
+
+    // 2. GET /actuator/health
+    MockHttpServletRequest healthReq = new MockHttpServletRequest("GET", "/actuator/health");
+    MockHttpServletResponse healthResp = new MockHttpServletResponse();
+    filter.doFilter(healthReq, healthResp, filterChain);
+    verify(filterChain).doFilter(healthReq, healthResp);
+
+    // 3. GET /v1/sellers/seller_101
+    MockHttpServletRequest readReq = new MockHttpServletRequest("GET", "/v1/sellers/seller_101");
+    MockHttpServletResponse readResp = new MockHttpServletResponse();
+    filter.doFilter(readReq, readResp, filterChain);
+    verify(filterChain).doFilter(readReq, readResp);
+
+    // Redis is never invoked for read operations
+    verify(valueOperations, never()).increment(anyString());
+  }
 }

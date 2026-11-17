@@ -52,10 +52,13 @@ public class RedisRateLimiterFilter extends OncePerRequestFilter {
     if (path.startsWith("/actuator")
         || path.startsWith("/swagger-ui")
         || path.startsWith("/v3/api-docs")
+        || path.startsWith("/.well-known")
         || path.equals("/error")) {
       return true;
     }
-    // Only filter mutating write operations
+    // Only filter mutating write operations (POST, PUT, DELETE, PATCH)
+    // Read endpoints (GET, HEAD, OPTIONS) bypass rate limiting so a Redis outage never stops reads
+    // or JWT verification
     return !WRITE_METHODS.contains(request.getMethod().toUpperCase());
   }
 
