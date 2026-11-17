@@ -8,8 +8,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * Base class for integration tests running against PostgreSQL.
  *
  * <p>Uses Testcontainers by default in CI and standard Docker environments. If the system property
- * {@code paycore.test.use-host-services=true} is explicitly set, or if Docker is unreachable during
- * local execution, it gracefully falls back to host-provided services on localhost:5432.
+ * {@code paycore.test.use-host-services=true} is explicitly set, or if Docker is unreachable
+ * during local execution, it gracefully falls back to host-provided services on localhost:5432.
  */
 public abstract class BaseIntegrationTest {
 
@@ -19,6 +19,11 @@ public abstract class BaseIntegrationTest {
   private static PostgreSQLContainer<?> postgres;
 
   static {
+    if (System.getProperty("DOCKER_API_VERSION") == null
+        && System.getenv("DOCKER_API_VERSION") == null) {
+      System.setProperty("DOCKER_API_VERSION", "1.45");
+    }
+
     if (!USE_HOST_SERVICES) {
       try {
         postgres =
@@ -29,7 +34,7 @@ public abstract class BaseIntegrationTest {
         postgres.start();
       } catch (Throwable t) {
         System.err.println(
-            "Testcontainers initialization failed; falling back to host services if reachable: "
+            "Testcontainers initialization failed; falling back to host/CI services: "
                 + t.getMessage());
       }
     }
