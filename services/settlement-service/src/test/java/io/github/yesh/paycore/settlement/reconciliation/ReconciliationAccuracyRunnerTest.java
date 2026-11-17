@@ -17,6 +17,9 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
@@ -492,8 +495,19 @@ class ReconciliationAccuracyRunnerTest {
         fm);
   }
 
+  private File resolveReportFile() {
+    Path current = Paths.get("").toAbsolutePath();
+    while (current != null) {
+      if (Files.exists(current.resolve("pom.xml")) && Files.exists(current.resolve("services"))) {
+        return current.resolve("docs").resolve("reconciliation-accuracy-report.md").toFile();
+      }
+      current = current.getParent();
+    }
+    return new File("docs/reconciliation-accuracy-report.md");
+  }
+
   private void generateAccuracyReport(List<SeedRunResult> runs) throws IOException {
-    File reportFile = new File("/mnt/nexus/paycore/docs/reconciliation-accuracy-report.md");
+    File reportFile = resolveReportFile();
     reportFile.getParentFile().mkdirs();
 
     try (PrintWriter out = new PrintWriter(new FileWriter(reportFile))) {
