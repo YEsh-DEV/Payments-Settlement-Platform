@@ -8,8 +8,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * Base class for integration tests running against PostgreSQL.
  *
  * <p>Uses Testcontainers by default in CI and standard Docker environments. If the system property
- * {@code paycore.test.use-host-services=true} is explicitly set, or if Docker is unreachable
- * during local execution, it gracefully falls back to host-provided services on localhost:5432.
+ * {@code paycore.test.use-host-services=true} is explicitly set, or if Docker is unreachable during
+ * local execution, it gracefully falls back to host-provided services on localhost:5432.
  */
 public abstract class BaseIntegrationTest {
 
