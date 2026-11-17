@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
+import io.github.yesh.paycore.settlement.BaseIntegrationTest;
 import io.github.yesh.paycore.settlement.client.LedgerClient;
 import io.github.yesh.paycore.settlement.domain.Batch;
 import io.github.yesh.paycore.settlement.domain.BatchStatus;
@@ -34,7 +35,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootTest
-public class PaymentToSettlementEndToEndIntegrationTest {
+public class PaymentToSettlementEndToEndIntegrationTest extends BaseIntegrationTest {
 
   @Autowired private BatchCutoffService batchCutoffService;
   @Autowired private SettlementCandidateConsumer candidateConsumer;

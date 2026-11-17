@@ -34,6 +34,7 @@
 | Protocol Criterion | Playbook Requirement | Observed in 24 Result Files | Audit Status |
 |:---|:---|:---|:---:|
 | **Target Service** | Real OpenJDK 21 JVM + PostgreSQL 16 | Verified real JVM PIDs and live HTTP connections | **PASS** |
+| **Storage Substrate** | Real disk-backed storage (NVMe/SSD) | Ran against `/tmp/paycore-pg` on `tmpfs` (RAM filesystem) | **FAIL** |
 | **Database Snapshot Reset** | Fresh DB snapshot restored before every run cell | `UPDATE/TRUNCATE` was imperfect; left 116,395 dirty rows | **FAIL** |
 | **Duration per Cell** | 30s warm-up (discarded) + 120s measured | Ran 30s total without warm-up discard | **FAIL** |
 | **Repeats per Cell** | 3 independent repeats, median reported | Ran 1 repeat (`run1` duplicated as `median`) | **FAIL** |

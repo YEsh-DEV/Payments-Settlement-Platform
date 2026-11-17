@@ -10,6 +10,7 @@ Module Total: 16 tests (failures=0, errors=0, skipped=0)
 === identity-service ===
   ArchitectureRulesTest: 4 tests (failures=0, errors=0, skipped=0)
   OpenApiContractTest: 1 tests (failures=0, errors=0, skipped=0)
+  AuditAdminControllerTest: 1 tests (failures=0, errors=0, skipped=0)
   AuthControllerTest: 10 tests (failures=0, errors=0, skipped=0)
   UserAdminControllerTest: 4 tests (failures=0, errors=0, skipped=0)
   JwtTokenServiceTest: 3 tests (failures=0, errors=0, skipped=0)
@@ -17,7 +18,7 @@ Module Total: 16 tests (failures=0, errors=0, skipped=0)
   RsaKeyProviderTest: 3 tests (failures=0, errors=0, skipped=0)
   AuthServiceTest: 7 tests (failures=0, errors=0, skipped=0)
   UserServiceTest: 6 tests (failures=0, errors=0, skipped=0)
-Module Total: 39 tests (failures=0, errors=0, skipped=0)
+Module Total: 40 tests (failures=0, errors=0, skipped=0)
 
 === ledger-service ===
   ArchitectureRulesTest: 4 tests (failures=0, errors=0, skipped=0)
@@ -67,4 +68,4 @@ Module Total: 103 tests (failures=0, errors=0, skipped=0)
   ReconciliationAccuracyRunnerTest: 1 tests (failures=0, errors=0, skipped=0)
 Module Total: 65 tests (failures=0, errors=0, skipped=0)
 
-GRAND TOTAL ACROSS ALL MODULES: 223 tests
+GRAND TOTAL ACROSS ALL MODULES: 224 tests

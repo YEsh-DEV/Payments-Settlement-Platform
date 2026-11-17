@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.github.yesh.paycore.ledger.BaseIntegrationTest;
 import io.github.yesh.paycore.ledger.domain.Seller;
 import io.github.yesh.paycore.ledger.dto.AccountResponse;
 import io.github.yesh.paycore.ledger.service.AccountService;
@@ -26,7 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {"paycore.security.enabled=true"})
-public class RoleMatrixSecurityTest {
+public class RoleMatrixSecurityTest extends BaseIntegrationTest {
 
   @Autowired private MockMvc mockMvc;
 

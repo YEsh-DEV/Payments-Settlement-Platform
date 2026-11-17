@@ -3,6 +3,7 @@ package io.github.yesh.paycore.settlement.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.yesh.paycore.settlement.BaseIntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootTest
-public class MakerCheckerDatabaseConstraintTest {
+public class MakerCheckerDatabaseConstraintTest extends BaseIntegrationTest {
 
   @Autowired private JdbcTemplate jdbcTemplate;
 

@@ -167,14 +167,17 @@ class BatchCutoffServiceTest {
   @Test
   @DisplayName("Playbook requirement: Concurrent batch run blocked when advisory lock is held")
   void testConcurrentCutoffRunBlockedByAdvisoryLock() {
-    org.springframework.jdbc.core.JdbcTemplate mockJdbc = mock(org.springframework.jdbc.core.JdbcTemplate.class);
-    when(mockJdbc.queryForObject(eq("SELECT pg_try_advisory_xact_lock(?)"), eq(Boolean.class), anyLong()))
+    org.springframework.jdbc.core.JdbcTemplate mockJdbc =
+        mock(org.springframework.jdbc.core.JdbcTemplate.class);
+    when(mockJdbc.queryForObject(
+            eq("SELECT pg_try_advisory_xact_lock(?)"), eq(Boolean.class), anyLong()))
         .thenReturn(false);
 
     BatchCutoffService serviceWithLock =
         new BatchCutoffService(batchRepo, recordRepo, payoutRepo, ledgerClient, mockJdbc);
 
-    assertThatThrownBy(() -> serviceWithLock.runCutoff(new BatchCutoffRequest(Instant.now(), 10000L, null)))
+    assertThatThrownBy(
+            () -> serviceWithLock.runCutoff(new BatchCutoffRequest(Instant.now(), 10000L, null)))
         .isInstanceOf(io.github.yesh.paycore.settlement.exception.InvalidBatchStateException.class)
         .hasMessageContaining("advisory lock busy");
 

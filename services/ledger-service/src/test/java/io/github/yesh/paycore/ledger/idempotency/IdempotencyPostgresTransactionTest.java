@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.yesh.paycore.common.model.Money;
+import io.github.yesh.paycore.ledger.BaseIntegrationTest;
 import io.github.yesh.paycore.ledger.domain.*;
 import io.github.yesh.paycore.ledger.dto.JournalLeg;
 import io.github.yesh.paycore.ledger.dto.JournalRequest;
@@ -28,7 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-public class IdempotencyPostgresTransactionTest {
+public class IdempotencyPostgresTransactionTest extends BaseIntegrationTest {
 
   @Autowired private IdempotencyService idempotencyService;
   @Autowired private IdempotencyRecordRepository idempotencyRepository;

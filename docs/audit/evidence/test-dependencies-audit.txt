@@ -1,0 +1,55 @@
+# Test Database & Dependency Audit Evidence
+Date: 2026-11-17T02:18:26.594249+00:00
+Commit SHA: 6e11b644ac0860fcaead1d563bc2a6eba5a84783
+
+================================================================================
+SEARCH: 5432 in test files and profiles
+COMMAND: grep -rn "5432" */*/src/test/ libs/*/src/test/ */*/src/main/resources/ libs/*/src/main/resources/
+================================================================================
+services/ledger-service/src/test/resources/application.yml:8:    url: jdbc:postgresql://localhost:5432/ledger
+services/settlement-service/src/test/resources/application.yml:5:    url: jdbc:postgresql://localhost:5432/settlement
+services/identity-service/src/main/resources/application.yml:8:    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/identity}
+services/ledger-service/src/main/resources/application.yml:8:    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ledger}
+services/settlement-service/src/main/resources/application.yml:8:    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/settlement}
+
+================================================================================
+SEARCH: jdbc:postgresql in test files and profiles
+COMMAND: grep -rn "jdbc:postgresql" */*/src/test/ libs/*/src/test/ */*/src/main/resources/ libs/*/src/main/resources/
+================================================================================
+services/ledger-service/src/test/resources/application.yml:8:    url: jdbc:postgresql://localhost:5432/ledger
+services/settlement-service/src/test/resources/application.yml:5:    url: jdbc:postgresql://localhost:5432/settlement
+services/identity-service/src/main/resources/application.yml:8:    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/identity}
+services/ledger-service/src/main/resources/application.yml:8:    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ledger}
+services/settlement-service/src/main/resources/application.yml:8:    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/settlement}
+
+================================================================================
+SEARCH: Testcontainers / @Container / DockerImageName in test files
+COMMAND: grep -rnE "Testcontainers|@Container|DockerImageName" */*/src/test/ libs/*/src/test/
+================================================================================
+(no matches)
+
+================================================================================
+SEARCH: localhost in test files and profiles
+COMMAND: grep -rn "localhost" */*/src/test/ libs/*/src/test/
+================================================================================
+services/ledger-service/src/test/java/io/github/yesh/paycore/ledger/security/LedgerSecurityRoleEnforcementTest.java:41:      "paycore.security.jwks-uri=http://localhost:8081/.well-known/jwks.json"
+services/ledger-service/src/test/resources/application.yml:8:    url: jdbc:postgresql://localhost:5432/ledger
+services/ledger-service/src/test/resources/application.yml:25:      host: localhost
+services/ledger-service/src/test/resources/application.yml:28:    bootstrap-servers: localhost:9092
+services/ledger-service/src/test/resources/application.yml:33:    jwks-uri: http://localhost:8081/.well-known/jwks.json
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:31:            "http://localhost:8082",
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:32:            "http://localhost:8081",
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:42:            eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class)))
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:53:        .postForEntity(eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class));
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:64:            eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class)))
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:71:        .postForEntity(eq("http://localhost:8081/auth/service-token"), any(), eq(Map.class));
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:80:    when(restTemplate.postForEntity(eq("http://localhost:8082/v1/payouts"), any(), eq(Map.class)))
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:89:        .postForEntity(eq("http://localhost:8082/v1/payouts"), captor.capture(), eq(Map.class));
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:104:            eq("http://localhost:8082/v1/provider-deposits"), any(), eq(Map.class)))
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/client/LedgerClientTest.java:114:            eq("http://localhost:8082/v1/provider-deposits"), captor.capture(), eq(Map.class));
+services/settlement-service/src/test/resources/application.yml:5:    url: jdbc:postgresql://localhost:5432/settlement
+services/settlement-service/src/test/resources/application.yml:20:    bootstrap-servers: localhost:9092
+services/settlement-service/src/test/resources/application.yml:25:    jwks-uri: http://localhost:8081/.well-known/jwks.json
+services/settlement-service/src/test/resources/application.yml:31:    ledger-url: http://localhost:8082
+services/settlement-service/src/test/resources/application.yml:32:    identity-url: http://localhost:8081
+

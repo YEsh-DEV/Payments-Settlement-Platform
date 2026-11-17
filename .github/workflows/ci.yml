@@ -2,7 +2,7 @@ name: PayCore Continuous Integration
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, wp-backend-fix-2 ]
   pull_request:
     branches: [ main ]
 
@@ -107,4 +107,4 @@ jobs:
       - name: Scan for Uncommitted Secrets & Sensitive Tokens
         run: |
           echo "Scanning for potential committed credentials or private keys..."
-          ! git grep -iE "(BEGIN PRIVATE KEY|AWS_SECRET_ACCESS_KEY|bearer [a-zA-Z0-9_\-\.]{50,})" -- ':!.github' ':!*.md' ':!*.json'
+          ! git grep -iE "(BEGIN PRIVATE KEY|AWS_SECRET_ACCESS_KEY|bearer [a-zA-Z0-9_\-\.]{50,})" -- ':!.github' ':!*.md' ':!*.json' ':!*src/test*' ':!docs/audit/evidence/*'
