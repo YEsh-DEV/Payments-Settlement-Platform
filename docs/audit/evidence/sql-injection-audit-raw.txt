@@ -1,0 +1,67 @@
+# SQL Injection Raw Audit Evidence
+Date: 2026-11-17T01:48:39.586454+00:00
+Commit SHA: b758f0424619d9c28945c73202870350fef9835a
+
+================================================================================
+SEARCH: nativeQuery
+COMMAND: grep -rn --include="*.java" "nativeQuery" services/ libs/
+================================================================================
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/OutboxEventRepository.java:29:      nativeQuery = true)
+
+================================================================================
+SEARCH: createNativeQuery
+COMMAND: grep -rn --include="*.java" "createNativeQuery" services/ libs/
+================================================================================
+(no matches)
+
+================================================================================
+SEARCH: JdbcTemplate
+COMMAND: grep -rn --include="*.java" "JdbcTemplate" services/ libs/
+================================================================================
+services/settlement-service/src/main/java/io/github/yesh/paycore/settlement/service/BatchCutoffService.java:28:import org.springframework.jdbc.core.JdbcTemplate;
+services/settlement-service/src/main/java/io/github/yesh/paycore/settlement/service/BatchCutoffService.java:43:  private final JdbcTemplate jdbcTemplate;
+services/settlement-service/src/main/java/io/github/yesh/paycore/settlement/service/BatchCutoffService.java:51:      @Autowired(required = false) JdbcTemplate jdbcTemplate) {
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/BatchCutoffServiceTest.java:170:    org.springframework.jdbc.core.JdbcTemplate mockJdbc = mock(org.springframework.jdbc.core.JdbcTemplate.class);
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/integration/MakerCheckerDatabaseConstraintTest.java:12:import org.springframework.jdbc.core.JdbcTemplate;
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/integration/MakerCheckerDatabaseConstraintTest.java:17:  @Autowired private JdbcTemplate jdbcTemplate;
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/integration/PaymentToSettlementEndToEndIntegrationTest.java:34:import org.springframework.jdbc.core.JdbcTemplate;
+services/settlement-service/src/test/java/io/github/yesh/paycore/settlement/integration/PaymentToSettlementEndToEndIntegrationTest.java:44:  @Autowired private JdbcTemplate jdbcTemplate;
+
+================================================================================
+SEARCH: EntityManager
+COMMAND: grep -rn --include="*.java" "EntityManager" services/ libs/
+================================================================================
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/engine/PostingEngine.java:18:import jakarta.persistence.EntityManager;
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/engine/PostingEngine.java:41:  @PersistenceContext private EntityManager entityManager;
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/strategy/S1LateLockStrategy.java:15:import jakarta.persistence.EntityManager;
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/strategy/S1LateLockStrategy.java:36:  @PersistenceContext private EntityManager entityManager;
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/strategy/S2StripedStrategy.java:12:import jakarta.persistence.EntityManager;
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/strategy/S2StripedStrategy.java:35:  @PersistenceContext private EntityManager entityManager;
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/strategy/S4LedgerOnlyStrategy.java:12:import jakarta.persistence.EntityManager;
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/strategy/S4LedgerOnlyStrategy.java:33:  @PersistenceContext private EntityManager entityManager;
+
+================================================================================
+SEARCH: @Query
+COMMAND: grep -rn --include="*.java" "@Query" services/ libs/
+================================================================================
+services/identity-service/src/main/java/io/github/yesh/paycore/identity/repository/RefreshTokenRepository.java:19:  @Query(
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/AccountRepository.java:23:  @Query("SELECT a FROM Account a WHERE a.id = :id")
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/AccountRepository.java:27:  @Query("SELECT a FROM Account a WHERE a.code = :code")
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/AccountStripeRepository.java:21:  @Query(
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/AccountStripeRepository.java:26:  @Query(
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/IdempotencyRecordRepository.java:24:  @Query("UPDATE IdempotencyRecord r SET r.status = :targetStatus WHERE r.status = :sourceStatus")
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/IdempotencyRecordRepository.java:30:  @Query(
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/IdempotencyRecordRepository.java:38:  @Query("DELETE FROM IdempotencyRecord r WHERE r.status IN :statuses AND r.createdAt < :cutoff")
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/LedgerEntryRepository.java:23:  @Query("SELECT COALESCE(SUM(e.amountPaise), 0) FROM LedgerEntry e WHERE e.direction = :direction")
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/LedgerEntryRepository.java:26:  @Query(
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/LedgerEntryRepository.java:31:  @Query(
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/OutboxEventRepository.java:15:  @Query("SELECT o FROM OutboxEvent o WHERE o.publishedAt IS NULL ORDER BY o.id ASC")
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/OutboxEventRepository.java:18:  @Query(
+services/ledger-service/src/main/java/io/github/yesh/paycore/ledger/repository/OutboxEventRepository.java:33:  @Query("UPDATE OutboxEvent o SET o.publishedAt = CURRENT_TIMESTAMP WHERE o.id IN :ids")
+
+================================================================================
+SEARCH: string-built SQL (concatenation with SELECT/INSERT/UPDATE/DELETE)
+COMMAND: grep -rnE --include="*.java" "(SELECT|INSERT|UPDATE|DELETE).*\+" services/ libs/
+================================================================================
+(no matches)
+

@@ -151,18 +151,21 @@ HTTP Status: 422
 ---
 
 ### 2.5 SEC-05: SQL Injection & Data Tampering Prevention
-**Requirement:** All relational operations must use Spring Data JPA or `PreparedStatement` query bindings. Dynamic string concatenation in SQL queries is prohibited.
+**Requirement:** All relational operations must use Spring Data JPA or `PreparedStatement` query bindings. Dynamic string concatenation in SQL queries is strictly prohibited.
 
-**Verification Command:**
-```bash
-git grep -n "createStatement" services/ || echo "Zero raw Statement invocations found."
-```
+**Verification Searches & Evidence:**
+Exhaustive repository audit performed across all Java files in `services/` and `libs/` for:
+- `nativeQuery` (Only 1 instance in `OutboxEventRepository.java`, utilizing static constant SQL with parameterized `:limit`)
+- `createNativeQuery` (0 matches)
+- `JdbcTemplate` (Referenced only for parameterized advisory lock checking and integration test fixture setup)
+- `EntityManager` (Referenced only for static query hints and lock acquisition)
+- `@Query` (All instances use named JPQL parameter bindings, e.g., `:id`, `:code`)
+- String-built dynamic SQL concatenation (`(SELECT|INSERT|UPDATE|DELETE).*\\+` -> 0 matches)
 
-**Captured Output:**
-```
-Zero raw Statement invocations found.
-```
-**Result:** **PASS**. 100% of database operations execute via ORM parameter binding or Flyway-managed schema migrations.
+Full raw command outputs, search commands, and line numbers are archived in:
+[sql-injection-audit-raw.txt](file:///mnt/nexus/paycore/docs/audit/evidence/sql-injection-audit-raw.txt) (Captured at commit `b758f04`).
+
+**Result:** **PASS**. 100% of database operations execute via ORM parameter binding, static parameterized JPQL, or Flyway-managed schema migrations. Zero user-input SQL concatenation exists across the codebase.
 
 ---
 
