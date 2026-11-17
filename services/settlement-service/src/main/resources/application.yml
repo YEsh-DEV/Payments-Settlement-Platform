@@ -37,6 +37,7 @@ spring:
 
 paycore:
   security:
+    enabled: ${PAYCORE_SECURITY_ENABLED:true}
     jwks-uri: ${PAYCORE_SECURITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
   settlement:
     cutoff-cron: "0 0 * * * *" # Hourly cutoff

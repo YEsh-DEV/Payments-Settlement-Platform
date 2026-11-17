@@ -35,8 +35,11 @@ public class AuthService {
   private final JwtTokenService jwtTokenService;
   private final LoginAttemptService loginAttemptService;
   private final TokenDenyListService tokenDenyListService;
+  private final AuditService auditService;
+  private final TokenRevocationService tokenRevocationService;
   private final long refreshTokenValiditySeconds;
 
+  @org.springframework.beans.factory.annotation.Autowired
   public AuthService(
       UserRepository userRepository,
       RefreshTokenRepository refreshTokenRepository,
@@ -46,6 +49,8 @@ public class AuthService {
       JwtTokenService jwtTokenService,
       LoginAttemptService loginAttemptService,
       TokenDenyListService tokenDenyListService,
+      AuditService auditService,
+      TokenRevocationService tokenRevocationService,
       @Value("${paycore.security.jwt.refresh-token-validity-seconds:604800}")
           long refreshTokenValiditySeconds) {
     this.userRepository = userRepository;
@@ -56,7 +61,34 @@ public class AuthService {
     this.jwtTokenService = jwtTokenService;
     this.loginAttemptService = loginAttemptService;
     this.tokenDenyListService = tokenDenyListService;
+    this.auditService = auditService;
+    this.tokenRevocationService = tokenRevocationService;
     this.refreshTokenValiditySeconds = refreshTokenValiditySeconds;
+  }
+
+  // Legacy constructor for unit tests
+  public AuthService(
+      UserRepository userRepository,
+      RefreshTokenRepository refreshTokenRepository,
+      ServiceClientRepository serviceClientRepository,
+      AuditLogRepository auditLogRepository,
+      PasswordEncoder passwordEncoder,
+      JwtTokenService jwtTokenService,
+      LoginAttemptService loginAttemptService,
+      TokenDenyListService tokenDenyListService,
+      long refreshTokenValiditySeconds) {
+    this(
+        userRepository,
+        refreshTokenRepository,
+        serviceClientRepository,
+        auditLogRepository,
+        passwordEncoder,
+        jwtTokenService,
+        loginAttemptService,
+        tokenDenyListService,
+        null,
+        null,
+        refreshTokenValiditySeconds);
   }
 
   public record LoginResult(String accessToken, String rawRefreshToken, User user) {}
@@ -119,7 +151,11 @@ public class AuthService {
 
     // Reuse detection: If token was already used, a replay attack occurred!
     if (token.isUsed()) {
-      refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now());
+      if (tokenRevocationService != null) {
+        tokenRevocationService.revokeFamilyImmediately(token.getFamilyId());
+      } else {
+        refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now());
+      }
       audit(
           "SYSTEM",
           "REFRESH_TOKEN_REUSE_DETECTED",
@@ -215,17 +251,22 @@ public class AuthService {
   }
 
   private void audit(String actor, String action, String entity, String entityId, String details) {
-    String jsonDetails;
-    if (details == null) {
-      jsonDetails = "{}";
-    } else if (details.trim().startsWith("{") || details.trim().startsWith("[")) {
-      jsonDetails = details;
+    if (auditService != null) {
+      auditService.recordAuditLog(
+          actor, action, entity, entityId, details, RequestIdFilter.getCurrentRequestId());
     } else {
-      jsonDetails = "{\"message\":\"" + details.replace("\"", "\\\"") + "\"}";
+      String jsonDetails;
+      if (details == null) {
+        jsonDetails = "{}";
+      } else if (details.trim().startsWith("{") || details.trim().startsWith("[")) {
+        jsonDetails = details;
+      } else {
+        jsonDetails = "{\"message\":\"" + details.replace("\"", "\\\"") + "\"}";
+      }
+      AuditLog log =
+          new AuditLog(
+              actor, action, entity, entityId, jsonDetails, RequestIdFilter.getCurrentRequestId());
+      auditLogRepository.save(log);
     }
-    AuditLog log =
-        new AuditLog(
-            actor, action, entity, entityId, jsonDetails, RequestIdFilter.getCurrentRequestId());
-    auditLogRepository.save(log);
   }
 }

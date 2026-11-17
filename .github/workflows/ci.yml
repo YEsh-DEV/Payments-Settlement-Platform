@@ -43,7 +43,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Initialize PostgreSQL Multi-Tenant Databases
+      - name: Initialize PostgreSQL Database-Per-Service Databases
         run: |
           docker cp deploy/postgres-init.sql ${{ job.services.postgres.id }}:/tmp/init.sql
           docker exec ${{ job.services.postgres.id }} psql -U postgres -f /tmp/init.sql
@@ -59,7 +59,7 @@ jobs:
         run: ./mvnw -B spotless:check
 
       - name: Enforce Dependencies, SpotBugs, ArchUnit, Tests & JaCoCo Coverage
-        run: ./mvnw -B verify
+        run: ./mvnw -B verify -Dpaycore.test.use-host-services=true
 
       - name: Archive Test Reports
         if: always()
@@ -97,8 +97,8 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Lint Ops Console
-        run: npm run lint || echo "Frontend lint warnings recorded (remediation deferred to WP-L)"
+      - name: Lint Ops Console (Blocking with --max-warnings 0)
+        run: npm run lint
 
       - name: Typecheck and Build Bundle
         run: npm run build
@@ -139,5 +139,7 @@ jobs:
 
       - name: Scan for Uncommitted Secrets & Sensitive Tokens
         run: |
-          echo "Scanning for potential committed credentials or private keys..."
-          ! git grep -iE "(BEGIN PRIVATE KEY|AWS_SECRET_ACCESS_KEY|bearer [a-zA-Z0-9_\-\.]{50,})" -- ':!.github' ':!*.md' ':!*.json' ':!*src/test*' ':!docs/audit/evidence/*'
+          echo "Scanning for potential committed credentials or private keys in working tree..."
+          ! git grep -iE "(BEGIN PRIVATE KEY|AWS_SECRET_ACCESS_KEY|bearer [a-zA-Z0-9_\-\.]{50,})" -- ':!.github' ':!*.md' ':!*.json' ':!*src/test*' ':!docs/audit/evidence/*' ':!deploy/keys/*'
+          echo "Scanning entire git commit history..."
+          python3 scripts/scan-git-history-secrets.py

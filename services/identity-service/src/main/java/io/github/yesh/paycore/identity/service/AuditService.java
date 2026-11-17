@@ -20,4 +20,24 @@ public class AuditService {
   public Page<AuditLog> listAuditLogs(Pageable pageable) {
     return auditLogRepository.findAll(pageable);
   }
+
+  @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+  public AuditLog recordAuditLog(
+      String actor,
+      String action,
+      String entity,
+      String entityId,
+      String details,
+      String requestId) {
+    String jsonDetails;
+    if (details == null) {
+      jsonDetails = "{}";
+    } else if (details.trim().startsWith("{") || details.trim().startsWith("[")) {
+      jsonDetails = details;
+    } else {
+      jsonDetails = "{\"message\":\"" + details.replace("\"", "\\\"") + "\"}";
+    }
+    AuditLog entry = new AuditLog(actor, action, entity, entityId, jsonDetails, requestId);
+    return auditLogRepository.save(entry);
+  }
 }

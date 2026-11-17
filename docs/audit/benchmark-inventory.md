@@ -58,7 +58,7 @@
 | **1,900.3 TPS** | Measured S4_LEDGER_ONLY at $c=32$ in commit `386a81d` | Real k6 run against real JVM (30s duration) | Kept in evidence log; **NOT** promoted to official benchmark report until full 120s run completes |
 | **85.63 ms** | Claimed service recovery time after crash | Simulated via in-process `threading.Event()` sleep | **DELETED** |
 | **67.92 ms** | Claimed service recovery time after crash | Simulated in-process Python HTTP server restart | **DELETED** |
-| **7,073 ms** | Measured median recovery of real JVM after SIGKILL | Real OpenJDK 21 JVM process termination status -9 | **CONFIRMED REAL** in `docs/crash-test-report.md` |
+| **7,073 ms** | Single process restart observation | Exploratory single run against tmpfs | **PURGED** from reports. Retained in evidence log only labelled "exploratory, single run, tmpfs". Official crash SLA requires 50-run matrix under load on disk-backed volume. |
 
 ---
 
@@ -66,22 +66,31 @@
 
 To produce resume-defensible benchmark evidence that strictly satisfies Playbook Section 9:
 
-### Matrix Definition (Tier 1: 72 Cells)
+### Matrix Definition & Execution Protocol (Tier 1: 72 Cells)
 - **Strategies:** 4 (`S0_PESSIMISTIC`, `S1_LATE_LOCK`, `S2_STRIPED`, `S4_LEDGER_ONLY`)
 - **Workloads:** 2 (`W2` mixed 70/20/10, `W3` 80/20 Pareto distribution)
 - **Concurrency Levels:** 3 (`8`, `32`, `128`)
 - **Repeats:** 3 repeats per cell
 - **Total Runs:** $4 \times 2 \times 3 \times 3 = 72\text{ runs}$.
-- **Timing:** 30s warm-up (unmetered) + 120s measured = 150s (2.5 min) per run.
-- **Estimated Runtime:** $72 \times 2.5\text{ min} = 180\text{ min} = \mathbf{3.0\text{ hours}}$ (plus ~30 min for database snapshot resets and JVM restarts).
+- **Timing Breakdown per Cell:**
+  1. Restore template database (`CREATE DATABASE bench TEMPLATE bench_seed`): ~2.5s
+  2. Start OpenJDK 21 JVM with `-Dpaycore.ledger.strategy=<STRATEGY>` and wait for `/actuator/health` UP: ~9.0s
+  3. Warm-up k6 execution (unmetered, discarded): 30.0s
+  4. Measured k6 execution: 120.0s
+  5. Invariant verification scan (`GET /v1/integrity`): ~1.5s
+  6. Clean JVM shutdown and state verification: ~2.0s
+  7. Result serialization and disk flush: ~0.5s
+  - **Per-run cycle time:** $165.5\text{ seconds}$ (~2.76 min).
+- **Revised Total Benchmark Runtime:** $72 \times 165.5\text{ s} = 11,916\text{ s} \approx \mathbf{3.31\text{ hours}}$ (plus ~15 min for one-time 10,000-seller `bench_seed` generation = **~3.5 to 3.75 hours** total unattended execution).
 
-### Database Isolation Architecture
-Before each cell execution:
-1. Stop the target ledger JVM.
-2. Drop and recreate PostgreSQL database from clean pre-seeded snapshot containing 10,000 pre-created sellers.
-3. Start the target ledger JVM with `-Dpaycore.ledger.strategy=<STRATEGY>`.
-4. Wait for `/actuator/health` to report `UP`.
-5. Execute 30s warm-up k6 script (results discarded).
-6. Execute 120s measured k6 script.
-7. Call `GET /v1/integrity` to verify 0 invariant violations.
-8. Persist structured JSON result directly to `perf/results/bench_{WORKLOAD}_{STRATEGY}_c{CONCURRENCY}_run{REPEAT}.json`.
+### PostgreSQL Template Database Snapshot Architecture
+To eliminate dirty state leakage across runs:
+1. One-time setup: Generate `bench_seed` database with 10,000 pre-created sellers and pre-funded float accounts.
+2. Mark `bench_seed` as template: `ALTER DATABASE bench_seed is_template true;`
+3. Before every cell:
+   ```sql
+   SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'bench';
+   DROP DATABASE IF EXISTS bench;
+   CREATE DATABASE bench TEMPLATE bench_seed;
+   ```
+4. This ensures byte-level identical state for every strategy comparison without slow SQL re-insertions.

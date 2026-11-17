@@ -170,7 +170,7 @@ class BatchCutoffServiceTest {
     org.springframework.jdbc.core.JdbcTemplate mockJdbc =
         mock(org.springframework.jdbc.core.JdbcTemplate.class);
     when(mockJdbc.queryForObject(
-            eq("SELECT pg_try_advisory_xact_lock(?)"), eq(Boolean.class), anyLong()))
+            eq("SELECT pg_try_advisory_lock(?)"), eq(Boolean.class), anyLong()))
         .thenReturn(false);
 
     BatchCutoffService serviceWithLock =

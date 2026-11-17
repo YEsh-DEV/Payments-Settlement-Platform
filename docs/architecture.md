@@ -28,7 +28,7 @@ flowchart TD
     end
 
     subgraph Storage["Persistence & Messaging Tier"]
-        PG["PostgreSQL 16 (Multi-Tenant Schemas)<br/>ACID WAL, Striped Accounts, Advisory Locks"]
+        PG["PostgreSQL 16 (Database-per-Service)<br/>ACID WAL, Striped Accounts, Advisory Locks"]
         RD["Redis 8.10<br/>Hot-Account Striped Distributed Locks"]
         KF["Apache Kafka 3.7 (KRaft)<br/>Outbox Relay & Settlement Candidate Stream"]
     end
@@ -71,7 +71,11 @@ flowchart TD
 - **Transactional Outbox:** Reliably captures domain events in PostgreSQL within the payment transaction, polled and relayed asynchronously.
 
 ### C. Settlement Service (`settlement-service`)
-- **Batch Cutoff Engine:** Executes automated cutoff windows backed by PostgreSQL session-level advisory locks (`pg_try_advisory_lock`) to guarantee exactly-once processing.
+- **Batch Cutoff Engine:** Executes automated cutoff windows backed by PostgreSQL session-level advisory locks (`pg_try_advisory_lock`) to guarantee exactly-once processing cluster-wide.
+  - *Advisory Lock Demarcation:* A dedicated JDBC connection acquires `pg_try_advisory_lock(ADVISORY_LOCK_ID)` without blocking (returns immediate 409 `InvalidBatchStateException` if another node is running cutoff).
+  - *Short Staging Transaction:* The batch creation, record grouping, and initial payout staging execute in a short database transaction that commits immediately. Database connection is not held during external calls.
+  - *Out-of-Transaction Ledger Calls:* Calls to `LedgerClient.initiatePayout()` occur outside the database transaction with individual per-payout state transitions. Network latency or timeouts on ledger calls do not tie up database transactions.
+  - *Partial Failure & Deterministic Resumption:* If a ledger payout call fails or times out, the individual payout is recorded as `FAILED` and the batch transitions to `PARTIAL_FAILURE`. The batch can be safely resumed via `/v1/batches/{batchId}/resume`, re-attempting only failed payouts with the deterministic idempotency key (`batchId:sellerId`), preventing duplicate payouts or double spends.
 - **Bank Payout Dispatch:** Generates deterministic payout records (`batchId:sellerId`) and bank transfer instruction files.
 - **Streaming Provider File Parser:** Streams multi-gigabyte settlement CSVs with DigestInputStream SHA-256 verification and trailer checksum validation.
 - **4-Stage Reconciliation Engine:**

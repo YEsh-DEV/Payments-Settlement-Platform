@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { paycoreApi } from '../api/paycoreApi';
 import {
@@ -47,12 +48,14 @@ export function DashboardPage() {
     { name: 'Critical', count: severityCounts.CRITICAL, fill: '#ef4444' },
   ];
 
+  const [currentTimestamp] = useState(() => Date.now());
+
   const slaBreaches = cases.filter(
     (c) =>
       c.status === 'ESCALATED' ||
       (c.status !== 'RESOLVED' &&
         c.status !== 'WRITTEN_OFF' &&
-        new Date(c.slaDeadline).getTime() < Date.now())
+        new Date(c.slaDeadline).getTime() < currentTimestamp)
   ).length;
 
   const latestRecon = reconRuns[0];
@@ -64,7 +67,7 @@ export function DashboardPage() {
           100
         ).toFixed(1)
       : '100.0'
-    : '99.4';
+    : 'No data yet';
 
   return (
     <div className="space-y-6">

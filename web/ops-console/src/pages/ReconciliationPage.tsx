@@ -43,8 +43,14 @@ export function ReconciliationPage() {
       setUploadStatus('File ingested successfully (SHA-256 and trailer validated)');
       setFileToUpload(null);
     },
-    onError: (err: any) => {
-      setUploadStatus(`Upload failed: ${err.response?.data?.detail || err.message}`);
+    onError: (err: unknown) => {
+      const error = err as {
+        response?: { data?: { detail?: string } };
+        message?: string;
+      };
+      setUploadStatus(
+        `Upload failed: ${error.response?.data?.detail || error.message || 'Error'}`
+      );
     },
   });
 

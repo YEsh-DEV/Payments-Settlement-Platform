@@ -43,8 +43,16 @@ export function CasesPage() {
       queryClient.invalidateQueries({ queryKey: ['cases'] });
       setErrorMessage(null);
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.detail || err.response?.data?.message || err.message;
+    onError: (err: unknown) => {
+      const error = err as {
+        response?: { data?: { detail?: string; message?: string } };
+        message?: string;
+      };
+      const msg =
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        error.message ||
+        'Error';
       setErrorMessage(`Transition rejected: ${msg}`);
     },
   });

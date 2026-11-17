@@ -25,6 +25,8 @@ public class SecurityConfig {
   private final StringRedisTemplate redisTemplate;
   private final RequestIdFilter requestIdFilter = new RequestIdFilter();
   private final SecurityHeadersFilter securityHeadersFilter = new SecurityHeadersFilter();
+  private final io.github.yesh.paycore.common.web.RequestBodyLimitFilter requestBodyLimitFilter =
+      new io.github.yesh.paycore.common.web.RequestBodyLimitFilter();
 
   public SecurityConfig(
       JwtAuthenticationFilter jwtAuthenticationFilter,
@@ -43,6 +45,11 @@ public class SecurityConfig {
     http.csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .exceptionHandling(
+            exceptions ->
+                exceptions.authenticationEntryPoint(
+                    new org.springframework.security.web.authentication.HttpStatusEntryPoint(
+                        org.springframework.http.HttpStatus.UNAUTHORIZED)))
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
@@ -61,7 +68,8 @@ public class SecurityConfig {
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(requestIdFilter, UsernamePasswordAuthenticationFilter.class)
-        .addFilterAfter(securityHeadersFilter, RequestIdFilter.class);
+        .addFilterAfter(securityHeadersFilter, RequestIdFilter.class)
+        .addFilterAfter(requestBodyLimitFilter, SecurityHeadersFilter.class);
 
     if (redisTemplate != null) {
       http.addFilterBefore(

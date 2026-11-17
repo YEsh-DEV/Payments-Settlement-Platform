@@ -125,8 +125,9 @@ export function UsersPage() {
       setIsDialogOpen(false);
       reset();
       fetchUsers();
-    } catch (err: any) {
-      showToast(err.response?.data?.detail || 'Failed to create user', 'error');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } }; message?: string };
+      showToast(error.response?.data?.detail || error.message || 'Failed to create user', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -148,8 +149,9 @@ export function UsersPage() {
         'success'
       );
       fetchUsers();
-    } catch (err: any) {
-      showToast(err.response?.data?.detail || 'Failed to update user status', 'error');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } }; message?: string };
+      showToast(error.response?.data?.detail || error.message || 'Failed to update user status', 'error');
     }
   };
 

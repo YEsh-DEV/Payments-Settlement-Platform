@@ -55,8 +55,9 @@ export function CaseDetailPage() {
       setAdjustmentComment('');
       setErrorMsg(null);
     },
-    onError: (err: any) => {
-      setErrorMsg(err.response?.data?.detail || err.message);
+    onError: (err: unknown) => {
+      const error = err as { response?: { data?: { detail?: string } }; message?: string };
+      setErrorMsg(error.response?.data?.detail || error.message || 'Operation failed');
     },
   });
 
@@ -67,8 +68,9 @@ export function CaseDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['caseNotes', id] });
       setErrorMsg(null);
     },
-    onError: (err: any) => {
-      setErrorMsg(err.response?.data?.detail || err.message);
+    onError: (err: unknown) => {
+      const error = err as { response?: { data?: { detail?: string } }; message?: string };
+      setErrorMsg(error.response?.data?.detail || error.message || 'Operation failed');
     },
   });
 
@@ -163,7 +165,9 @@ export function CaseDetailPage() {
                   <label className="font-medium text-slate-700 block mb-1">Template</label>
                   <select
                     value={adjustmentTemplate}
-                    onChange={(e) => setAdjustmentTemplate(e.target.value as any)}
+                    onChange={(e) =>
+                      setAdjustmentTemplate(e.target.value as 'FEE_VARIANCE' | 'WRITE_OFF')
+                    }
                     className="w-full rounded-md border border-slate-300 p-2 text-xs"
                   >
                     <option value="FEE_VARIANCE">FEE_VARIANCE (DR Provider Fee, CR Provider Rec)</option>

@@ -35,6 +35,8 @@ public class SecurityConfig {
 
   private final RequestIdFilter requestIdFilter = new RequestIdFilter();
   private final SecurityHeadersFilter securityHeadersFilter = new SecurityHeadersFilter();
+  private final io.github.yesh.paycore.common.web.RequestBodyLimitFilter requestBodyLimitFilter =
+      new io.github.yesh.paycore.common.web.RequestBodyLimitFilter();
   private final StringRedisTemplate redisTemplate;
 
   @Value("${paycore.security.enabled:true}")
@@ -53,7 +55,8 @@ public class SecurityConfig {
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .addFilterBefore(requestIdFilter, UsernamePasswordAuthenticationFilter.class)
-        .addFilterAfter(securityHeadersFilter, RequestIdFilter.class);
+        .addFilterAfter(securityHeadersFilter, RequestIdFilter.class)
+        .addFilterAfter(requestBodyLimitFilter, SecurityHeadersFilter.class);
 
     if (redisTemplate != null) {
       http.addFilterBefore(

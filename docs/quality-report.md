@@ -17,7 +17,7 @@
 | **OpenAPI Contract** | SpringDoc OpenAPI 2.6.0 + Contract Tests | Schema generation & mandatory endpoints present | Verified via `OpenApiContractTest` in all services | **PASS** :white_check_mark: |
 | **Ledger Line Coverage** | JaCoCo 0.8.12 (`ledger-service`) | Domain $\ge 80\%$, Service $\ge 80\%$ | **Domain 82.18\%**, **Service 80.53\%** | **PASS** :white_check_mark: |
 | **Overall Line Coverage** | JaCoCo 0.8.12 (Other modules) | Common $\ge 70\%$, Identity $\ge 70\%$, Settlement $\ge 70\%$ | **Common 75.86\%**, **Identity 76.67\%**, **Settlement 76.46\%** | **PASS** :white_check_mark: |
-| **Unit & Integration Tests**| Maven Surefire 3.5.2 | 100% Passing, 0 Failures, 0 Errors | **203 Tests Run**, 0 Failures, 0 Errors | **PASS** :white_check_mark: |
+| **Unit & Integration Tests**| Maven Surefire 3.5.2 | 100% Passing, 0 Failures, 0 Errors | **248 Tests Run**, 0 Failures, 0 Errors | **PASS** :white_check_mark: |
 
 ---
 
@@ -27,11 +27,11 @@ Captured directly from Surefire XML reports (`target/surefire-reports/TEST-*.xml
 
 | Module | Tests Run | Failures | Errors | Skipped | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `paycore-common` | 11 | 0 | 0 | 0 | 100.0% |
-| `identity-service` | 34 | 0 | 0 | 0 | 100.0% |
-| `ledger-service` | 96 | 0 | 0 | 0 | 100.0% |
-| `settlement-service` | 62 | 0 | 0 | 0 | 100.0% |
-| **Total Reactor** | **203** | **0** | **0** | **0** | **100.0%** |
+| `paycore-common` | 20 | 0 | 0 | 0 | 100.0% |
+| `identity-service` | 54 | 0 | 0 | 0 | 100.0% |
+| `ledger-service` | 104 | 0 | 0 | 0 | 100.0% |
+| `settlement-service` | 70 | 0 | 0 | 0 | 100.0% |
+| **Total Reactor** | **248** | **0** | **0** | **0** | **100.0%** |
 
 ---
 
@@ -156,3 +156,25 @@ flowchart TD
 2. **Frontend Verification:** Runs Next.js ESLint, TypeScript compiler (`tsc --noEmit`), and production build.
 3. **Docker Build:** Builds Docker container images for all 4 services to ensure zero missing dependencies or container build regressions.
 4. **Security Audit:** Runs secret detection to guarantee no tokens or sensitive environment variables are committed.
+
+---
+
+## 4. Test Environment Architecture & Dependency Negotiation (C1 / C2)
+
+### 4.1 BaseIntegrationTest Contract
+To guarantee test provenance and eliminate silent fallbacks:
+- **Default Strategy:** All integration tests extending `BaseIntegrationTest` spawn isolated **Testcontainers** (`postgres:16-alpine`, `redis:7-alpine`).
+- **Fail-Fast Boundary:** If Docker is unreachable, tests do NOT silently fall back to an unmanaged local database; instead, they immediately fail with:
+  `IllegalStateException: Docker is unreachable and Testcontainers could not start... If you explicitly intend to test against host PostgreSQL/Redis, pass -Dpaycore.test.use-host-services=true.`
+- **Explicit Host Mode:** When `-Dpaycore.test.use-host-services=true` is explicitly provided, the test runner prints a prominent banner:
+  ```
+  ================================================================================
+   [WARNING] EXPLICIT HOST SERVICES MODE: Testing against host PostgreSQL on localhost:5432
+   Configuration: -Dpaycore.test.use-host-services=true
+  ================================================================================
+  ```
+  and sets the system property `paycore.test.environment=host-services` in Surefire reports.
+
+### 4.2 CI Architecture & Kafka Strategy
+- **Database & Cache Services:** In GitHub Actions CI ([.github/workflows/ci.yml](file:///.github/workflows/ci.yml)), PostgreSQL 16 and Redis 7 are managed as GitHub Actions service containers, pre-initialized with database-per-service isolation (`identity`, `ledger`, `settlement`).
+- **Kafka Integration Strategy:** Consumer de-duplication, retry loops, and DLQ dispatch (`ledger.domain-events.dlq`) are tested via Testcontainers Kafka in integration tests and verified end-to-end via the full Docker Compose stack in Step 1.

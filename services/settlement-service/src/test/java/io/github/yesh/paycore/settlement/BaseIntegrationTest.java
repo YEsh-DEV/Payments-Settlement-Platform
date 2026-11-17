@@ -24,7 +24,14 @@ public abstract class BaseIntegrationTest {
       System.setProperty("DOCKER_API_VERSION", "1.45");
     }
 
-    if (!USE_HOST_SERVICES) {
+    if (USE_HOST_SERVICES) {
+      System.err.println(
+          "\n================================================================================\n"
+              + " [WARNING] EXPLICIT HOST SERVICES MODE: Testing against host PostgreSQL on localhost:5432\n"
+              + " Configuration: -Dpaycore.test.use-host-services=true\n"
+              + "================================================================================\n");
+      System.setProperty("paycore.test.environment", "host-services");
+    } else {
       try {
         postgres =
             new PostgreSQLContainer<>("postgres:16-alpine")
@@ -32,10 +39,14 @@ public abstract class BaseIntegrationTest {
                 .withUsername("settlement_user")
                 .withPassword("settlement_dev_password");
         postgres.start();
+        System.setProperty("paycore.test.environment", "testcontainers");
       } catch (Throwable t) {
-        System.err.println(
-            "Testcontainers initialization failed; falling back to host/CI services: "
-                + t.getMessage());
+        throw new IllegalStateException(
+            "Docker is unreachable and Testcontainers could not start: "
+                + t.getMessage()
+                + ". If you explicitly intend to test against host PostgreSQL/Redis, "
+                + "pass -Dpaycore.test.use-host-services=true.",
+            t);
       }
     }
   }
