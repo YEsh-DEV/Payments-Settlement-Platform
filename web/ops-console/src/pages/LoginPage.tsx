@@ -44,36 +44,40 @@ const HIGHLIGHTS = [
   },
 ];
 
-const DEMO_ACCOUNTS = [
-  {
-    role: 'admin' as const,
-    label: 'Admin',
-    blurb: 'Full ops control',
-    icon: ShieldCheck,
-    credentials: { username: 'admin', password: 'password123' },
-  },
-  {
-    role: 'analyst' as const,
-    label: 'Analyst',
-    blurb: 'Recon & Cases',
-    icon: Scale,
-    credentials: { username: 'analyst', password: 'password123' },
-  },
-  {
-    role: 'auditor' as const,
-    label: 'Auditor',
-    blurb: 'Read-only audit',
-    icon: RefreshCw,
-    credentials: { username: 'auditor', password: 'password123' },
-  },
-  {
-    role: 'merchant' as const,
-    label: 'Merchant',
-    blurb: 'Portal view',
-    icon: Store,
-    credentials: { username: 'merchant', password: 'password123' },
-  },
-];
+const IS_DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+
+const DEMO_ACCOUNTS = IS_DEMO_MODE
+  ? [
+      {
+        role: 'admin' as const,
+        label: 'Admin',
+        blurb: 'Full ops control',
+        icon: ShieldCheck,
+        credentials: { username: 'admin', password: 'password123' },
+      },
+      {
+        role: 'analyst' as const,
+        label: 'Analyst',
+        blurb: 'Recon & Cases',
+        icon: Scale,
+        credentials: { username: 'analyst', password: 'password123' },
+      },
+      {
+        role: 'auditor' as const,
+        label: 'Auditor',
+        blurb: 'Read-only audit',
+        icon: RefreshCw,
+        credentials: { username: 'auditor', password: 'password123' },
+      },
+      {
+        role: 'merchant' as const,
+        label: 'Merchant',
+        blurb: 'Portal view',
+        icon: Store,
+        credentials: { username: 'merchant', password: 'password123' },
+      },
+    ]
+  : [];
 
 const PARTICLES = Array.from({ length: 14 }, (_, i) => ({
   id: i,
@@ -300,39 +304,41 @@ export function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-6">
-              <div className="flex items-center gap-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                <span className="h-px flex-1 bg-border" />
-                or choose role demo
-                <span className="h-px flex-1 bg-border" />
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {DEMO_ACCOUNTS.map((account) => {
-                  const Icon = account.icon;
-                  return (
-                    <button
-                      key={account.role}
-                      type="button"
-                      onClick={() => signInWithDemo(account.credentials)}
-                      disabled={isLoading}
-                      className="group flex items-center gap-3 rounded-lg border border-border bg-white/70 px-3 py-2.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium text-foreground">
-                          {account.label}
+            {IS_DEMO_MODE && (
+              <div className="mt-6">
+                <div className="flex items-center gap-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" />
+                  or choose role demo
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {DEMO_ACCOUNTS.map((account) => {
+                    const Icon = account.icon;
+                    return (
+                      <button
+                        key={account.role}
+                        type="button"
+                        onClick={() => signInWithDemo(account.credentials)}
+                        disabled={isLoading}
+                        className="group flex items-center gap-3 rounded-lg border border-border bg-white/70 px-3 py-2.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                          <Icon className="h-4 w-4" />
                         </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {account.blurb}
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-foreground">
+                            {account.label}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {account.blurb}
+                          </span>
                         </span>
-                      </span>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <p className="mt-6 text-center text-xs text-white/60">
